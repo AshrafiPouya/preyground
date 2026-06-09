@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Lab 1 — Error-Based Injection | Hunt Labs{% endblock %}
+
+{% block nav_extra %}
+<a href="{{ url_for('lab1.interview') }}">Interview Prep</a>
+{% endblock %}
+
+{% block content %}
+<div class="page lab-page">
+
+  {% if solved %}
+  <div class="solved-banner">
+    <div class="solved-banner-icon">🎉</div>
+    <div>
+      <div class="solved-banner-text">Lab Complete!</div>
+      <div class="solved-banner-sub">You extracted data from verbose database error messages.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="lab-header">
+    <div class="lab-header-info">
+      <div class="lab-header-meta">
+        <span class="badge badge-beginner">Beginner</span>
+        <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">LAB 01</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★★★</span> Interview</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Hunt</span>
+      </div>
+      <h1>Detection & Error-Based Injection</h1>
+      <p class="lab-header-desc">The <code>id</code> parameter is concatenated directly into a SQL query. Database errors are displayed verbatim. Find the injection, then use error-based extraction to read the flag from the <code>secrets</code> table.</p>
+    </div>
+    <div class="lab-header-actions">
+      <a href="{{ url_for('lab1.interview') }}" class="btn btn-ghost btn-sm">Interview Prep</a>
+      <form method="post" action="{{ url_for('lab1.toggle_verbose') }}">
+        <button type="submit" class="btn btn-ghost btn-sm">
+          {% if verbose_errors %}Hide Errors (on){% else %}Show Errors (off){% endif %}
+        </button>
+      </form>
+      <form method="post" action="{{ url_for('lab1.reset') }}" onsubmit="return confirm('Reset this lab?')">
+        <button type="submit" class="btn btn-danger btn-sm">Reset</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="lab-body">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Simulated App -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📖 Book Catalog</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">/product?id={{ product_id | e }}</span>
+        </div>
+        <div class="panel-body">
+          <form method="get" action="{{ url_for('lab1.index') }}" style="display:flex;gap:8px;margin-bottom:16px;">
+            <input type="text" name="id" value="{{ product_id | e }}" placeholder="Product ID (try: 1)" style="max-width:200px;">
+            <input type="hidden" name="submitted" value="1">
+            <button type="submit" class="btn btn-primary btn-sm">Fetch</button>
+          </form>
+
+          {% if error and verbose_errors %}
+          <div class="alert alert-error">
+            <div>
+              <strong>Database Error:</strong><br>
+              <code style="word-break:break-all">{{ error }}</code>
+            </div>
+          </div>
+          {% elif error and not verbose_errors %}
+          <div class="alert alert-error">An error occurred. (Verbose errors are disabled)</div>
+          {% endif %}
+
+          {% if rows %}
+          <table class="results-table">
+            <thead><tr><th>Title</th><th>Author</th><th>Price</th></tr></thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                <td>{{ row['title'] }}</td>
+                <td>{{ row['author'] }}</td>
+                <td>${{ row['price'] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% elif not error %}
+          <p class="text-muted" style="font-size:0.85rem;">No results for id={{ product_id | e }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Executed Query -->
+      {% if query %}
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Executed Query</span></div>
+        <div class="panel-body">
+          <div class="terminal">
+            <span class="prompt">mysql&gt; </span><span class="query">{{ query | e }}</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Objective -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Objective</span></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;font-size:0.875rem;color:var(--text-muted);">
+          <div>1. Trigger a database error by injecting into the <code>id</code> parameter.</div>
+          <div>2. Confirm the injection point (numeric context — no quotes needed).</div>
+          <div>3. Use error-based extraction (<code>extractvalue()</code>) to read the flag from the <code>secrets</code> table.</div>
+          <div>4. Submit the flag below.</div>
+          <div class="alert alert-info" style="margin:0">
+            <strong>Tip:</strong> The <em>verbose errors</em> toggle at the top shows what happens when a developer turns off error display — a key defensive lesson.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Flag Submission -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+        <div class="panel-body">
+          {% if session.get('lab1_flag_error') %}
+          <div class="alert alert-error" data-dismiss="4000">Incorrect flag. Keep hunting.</div>
+          {% endif %}
+          {% if solved %}
+          <div class="alert alert-success">Flag accepted! Lab complete.</div>
+          {% else %}
+          <form method="post" action="{{ url_for('lab1.submit_flag') }}" class="flag-form">
+            <input class="flag-input" type="text" name="flag" placeholder="HUNT{...}" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-full">Submit</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Hints -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Hints</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">{{ hints_revealed | length }}/3 revealed</span>
+        </div>
+        <div class="panel-body">
+          <div class="hints-list">
+            {% for i in range(1, 4) %}
+            <div class="hint-item">
+              <div class="hint-header">
+                Hint {{ i }}
+                {% if i not in hints_revealed %}
+                <form method="post" action="{{ url_for('lab1.hint', n=i) }}" style="margin:0">
+                  <button type="submit" class="btn btn-ghost btn-sm">Reveal</button>
+                </form>
+                {% endif %}
+              </div>
+              {% if i in hints_revealed %}
+              <div class="hint-content">{{ hints[i-1] | safe }}</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Payload Log -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Payload Log</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">{{ payload_log | length }} entries</span>
+        </div>
+        <div class="panel-body">
+          <div class="payload-log">
+            {% if payload_log %}
+            {% for entry in payload_log[:10] %}
+            <div class="log-entry" title="Click to copy">
+              <div class="log-payload">{{ entry.payload | e }}</div>
+              <div class="log-context">{{ entry.context }}</div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="log-empty">No payloads yet. Start testing.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

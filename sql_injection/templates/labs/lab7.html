@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Lab 7 — DB Fingerprinting | Hunt Labs{% endblock %}
+{% block nav_extra %}<a href="{{ url_for('lab7.interview') }}">Interview Prep</a>{% endblock %}
+
+{% block content %}
+<div class="page lab-page">
+  {% if solved %}<div class="solved-banner"><div class="solved-banner-icon">🎉</div><div><div class="solved-banner-text">Lab Complete!</div><div class="solved-banner-sub">You identified the database engine and adapted your payload.</div></div></div>{% endif %}
+
+  <div class="lab-header">
+    <div class="lab-header-info">
+      <div class="lab-header-meta">
+        <span class="badge badge-advanced">Advanced</span>
+        <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">LAB 07</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Interview</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Hunt</span>
+      </div>
+      <h1>Database Fingerprinting</h1>
+      <p class="lab-header-desc">The app is injectable — but payloads from earlier labs may not work as-is. Identify the database engine via version functions and syntax quirks, then adapt your extraction to the correct dialect.</p>
+    </div>
+    <div class="lab-header-actions">
+      <a href="{{ url_for('lab7.interview') }}" class="btn btn-ghost btn-sm">Interview Prep</a>
+      <form method="post" action="{{ url_for('lab7.reset') }}" onsubmit="return confirm('Reset?')">
+        <button type="submit" class="btn btn-danger btn-sm">Reset</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="lab-body">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🛒 Inventory Lookup</span></div>
+        <div class="panel-body">
+          <form method="get" action="{{ url_for('lab7.index') }}" style="display:flex;gap:8px;margin-bottom:16px;">
+            <input type="text" name="id" value="{{ product_id | e }}" placeholder="Product ID (try: 1)" style="max-width:200px;">
+            <button type="submit" class="btn btn-primary btn-sm">Fetch</button>
+          </form>
+          {% if error %}<div class="alert alert-error"><strong>Error:</strong> <code>{{ error }}</code></div>{% endif %}
+          {% if rows %}
+          <table class="results-table">
+            <thead><tr><th>Name</th><th>Category</th><th>Price</th></tr></thead>
+            <tbody>{% for row in rows %}<tr><td>{{ row.name }}</td><td>{{ row.category }}</td><td>{% if row.price is not none %}${{ row.price }}{% endif %}</td></tr>{% endfor %}</tbody>
+          </table>
+          {% elif rows is not none and not error %}<p class="text-muted" style="font-size:0.85rem;">No results.</p>{% endif %}
+        </div>
+      </div>
+
+      {% if query %}<div class="panel"><div class="panel-header"><span class="panel-title">Executed Query</span></div><div class="panel-body"><div class="terminal"><span class="prompt">db&gt; </span><span class="query">{{ query | e }}</span></div></div></div>{% endif %}
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Fingerprinting Reference</span></div>
+        <div class="panel-body" style="font-size:0.8rem;">
+          <table class="results-table">
+            <thead><tr><th>DB</th><th>Version</th><th>Concat</th><th>Comment</th><th>Schema</th></tr></thead>
+            <tbody>
+              <tr><td>MySQL</td><td><code>version()</code> / <code>@@version</code></td><td><code>CONCAT(a,b)</code></td><td><code>-- </code> / <code>#</code></td><td><code>information_schema</code></td></tr>
+              <tr><td>PostgreSQL</td><td><code>version()</code></td><td><code>a||b</code></td><td><code>-- </code></td><td><code>information_schema</code></td></tr>
+              <tr><td>SQLite</td><td><code>sqlite_version()</code></td><td><code>a||b</code></td><td><code>-- </code></td><td><code>sqlite_master</code></td></tr>
+              <tr><td>MSSQL</td><td><code>@@version</code></td><td><code>a+b</code></td><td><code>-- </code></td><td><code>information_schema</code></td></tr>
+              <tr><td>Oracle</td><td><code>banner FROM v$version</code></td><td><code>a||b</code></td><td><code>-- </code></td><td><code>ALL_TABLES</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+        <div class="panel-body">
+          {% if flag_error %}<div class="alert alert-error" data-dismiss="4000">Incorrect flag.</div>{% endif %}
+          {% if solved %}<div class="alert alert-success">Flag accepted!</div>
+          {% else %}
+          <form method="post" action="{{ url_for('lab7.submit_flag') }}" class="flag-form">
+            <input class="flag-input" type="text" name="flag" placeholder="HUNT{...}" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-full">Submit</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Hints</span><span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">{{ hints_revealed | length }}/3</span></div>
+        <div class="panel-body">
+          <div class="hints-list">
+            {% for i in range(1, 4) %}
+            <div class="hint-item">
+              <div class="hint-header">Hint {{ i }}{% if i not in hints_revealed %}<form method="post" action="{{ url_for('lab7.hint', n=i) }}" style="margin:0"><button type="submit" class="btn btn-ghost btn-sm">Reveal</button></form>{% endif %}</div>
+              {% if i in hints_revealed %}<div class="hint-content">{{ hints[i-1] | safe }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Payload Log</span></div>
+        <div class="panel-body">
+          <div class="payload-log">
+            {% for entry in payload_log[:8] %}<div class="log-entry" title="Click to copy"><div class="log-payload">{{ entry.payload | e }}</div></div>{% endfor %}
+            {% if not payload_log %}<div class="log-empty">No payloads yet.</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

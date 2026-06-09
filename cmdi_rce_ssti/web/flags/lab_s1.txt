@@ -1,0 +1,1 @@
+HUNT{seven_times_seven_is_49}

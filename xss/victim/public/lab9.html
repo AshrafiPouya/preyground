@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 9 — DOM XSS via eval | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab9" class="active">Lab 9</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 9 Solved — eval() sink conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 9</span><span class="badge badge-advanced">Advanced</span></div>
+    <h1>DOM XSS — eval() Sink</h1>
+    <p class="lab-header-desc">A calculator widget reads a URL param and passes it to <code>eval()</code> client-side. Anything you put in the <code>calc</code> param becomes JavaScript.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#129518;</span><span class="panel-title">Calculator</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Enter a math expression:</p>
+      <form style="display:flex;gap:8px;margin-bottom:16px;">
+        <input id="calc-input" class="flag-input" style="flex:1;" placeholder="2 + 2">
+        <button type="button" class="btn btn-primary" onclick="doCalc()">Calculate</button>
+      </form>
+      <div style="padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);">
+        <span style="font-size:12px;color:var(--text-muted);">Result: </span>
+        <span id="calc-result" style="font-family:var(--mono);color:var(--green);">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// Calculator reads ?calc= and evaluates it</span>
+<span class="hl-kw">const</span> expr = <span class="hl-kw">new</span> URLSearchParams(location.search).get(<span class="hl-orange">'calc'</span>);
+<span class="hl-kw">if</span> (expr) {
+  <span class="hl-subtle">// BUG: user-controlled string passed directly to eval</span>
+  result.textContent = <span class="hl-red">eval</span>(expr);
+}</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;"><strong>Dangerous sinks:</strong> <code>eval()</code>, <code>Function()</code>, <code>setTimeout(string)</code>, <code>setInterval(string)</code>, <code>innerHTML</code>, <code>document.write()</code>, <code>location</code>.</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>eval() runs anything</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Whatever you pass as the <code>calc</code> URL parameter gets executed as JavaScript. It's not limited to math.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>Call captureFlag directly</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Try navigating to <code>/lab9?calc=captureFlag()</code> — the parameter value becomes the argument to <code>eval()</code>.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>URL encoding</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">If parentheses cause issues, try using the form on page (it updates the URL) or URL-encode them: <code>captureFlag%28%29</code>.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab9';
+const EXPECTED_FLAG = 'HUNT{client_side_eval_is_rce_for_the_dom}';
+
+function captureFlag() {
+  fetch('/api/capture/lab9', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+function doCalc() {
+  const expr = document.getElementById('calc-input').value;
+  history.pushState({}, '', '/lab9?calc=' + encodeURIComponent(expr));
+  runCalc(expr);
+}
+
+function runCalc(expr) {
+  if (!expr) return;
+  try {
+    // VULNERABLE: eval with user input
+    const result = eval(expr);
+    document.getElementById('calc-result').textContent = result;
+  } catch(e) {
+    document.getElementById('calc-result').textContent = 'Error: ' + e.message;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+  // Check URL param on load
+  const expr = new URLSearchParams(location.search).get('calc');
+  if (expr) {
+    document.getElementById('calc-input').value = expr;
+    runCalc(expr);
+  }
+});
+</script>
+</body>
+</html>

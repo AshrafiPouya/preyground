@@ -1,0 +1,1 @@
+HUNT{no_brackets_still_xss}

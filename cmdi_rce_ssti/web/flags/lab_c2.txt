@@ -1,0 +1,1 @@
+HUNT{blacklist_missed_a_char}

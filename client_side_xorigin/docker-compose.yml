@@ -1,0 +1,11 @@
+services:
+  victim:
+    build: ./victim
+    ports: ["127.0.0.1:3000:3000"]
+    networks: [xnet]
+  attacker:
+    build: ./attacker
+    ports: ["127.0.0.1:3001:3001"]
+    networks: [xnet]
+networks:
+  xnet: { driver: bridge }

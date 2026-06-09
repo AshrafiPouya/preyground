@@ -1,0 +1,1 @@
+HUNT{escaped_the_js_string}

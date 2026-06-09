@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 18 — Angular bypassSecurityTrust | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab18" class="active">Lab 18</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 18 Solved — Angular trust bypass conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 18</span><span class="badge badge-advanced">Advanced</span></div>
+    <h1>Angular — bypassSecurityTrustHtml</h1>
+    <p class="lab-header-desc">Angular sanitizes HTML bound to the DOM by default. But a developer used <code>bypassSecurityTrustHtml()</code> to explicitly mark attacker input as "trusted" — defeating all protection.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#9651;</span><span class="panel-title">Angular-style User Bio (simulated)</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">This simulates an Angular component that bypasses the sanitizer:</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input id="bio-input" class="flag-input" style="flex:1;" placeholder="Enter bio HTML…">
+        <button class="btn btn-primary" onclick="renderBio()">Set Bio</button>
+      </div>
+      <div style="margin-bottom:12px;">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">&#10003; Safe — Angular's default sanitization:</p>
+        <div id="safe-output" style="padding:8px;background:var(--surface-2);border:1px solid var(--border-muted);border-radius:4px;color:var(--text);min-height:28px;"></div>
+      </div>
+      <div>
+        <p style="font-size:12px;color:var(--red);margin-bottom:4px;">&#10007; Unsafe — bypassSecurityTrustHtml (trusts attacker input):</p>
+        <div id="trusted-output" style="padding:8px;background:var(--surface-2);border:1px solid var(--red);border-radius:4px;min-height:28px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Angular Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// Angular component — TypeScript</span>
+<span class="hl-kw">constructor</span>(private sanitizer: DomSanitizer) {}
+
+setUserBio(input: string) {
+  <span class="hl-subtle">// Safe: Angular sanitizes by default</span>
+  this.safeBio = input;  <span class="hl-subtle">// used with [innerHTML] → sanitized</span>
+
+  <span class="hl-subtle">// BUG: explicitly trusting attacker input</span>
+  this.trustedBio = this.sanitizer
+    .<span class="hl-red">bypassSecurityTrustHtml</span>(input);  <span class="hl-subtle">// ← marks as trusted</span>
+}
+
+<span class="hl-subtle">&lt;!-- Template --&gt;</span>
+&lt;div [innerHTML]="safeBio"&gt;&lt;/div&gt;        <span class="hl-subtle">&lt;!-- sanitized --&gt;</span>
+&lt;div [innerHTML]="trustedBio"&gt;&lt;/div&gt;     <span class="hl-red">&lt;!-- trusted = raw --&gt;</span></code></pre>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128218;</span><span class="panel-title">Interview Prep: Angular Security</span></div>
+    <div class="panel-body">
+      <ul style="font-size:13px;color:var(--text-muted);">
+        <li><strong>Default:</strong> Angular sanitizes all values bound via <code>[innerHTML]</code>, <code>[style]</code>, <code>[src]</code>, <code>[href]</code>.</li>
+        <li><strong>Bypass:</strong> <code>bypassSecurityTrustHtml()</code>, <code>bypassSecurityTrustUrl()</code>, <code>bypassSecurityTrustResourceUrl()</code>, <code>bypassSecurityTrustStyle()</code>.</li>
+        <li><strong>AngularJS legacy:</strong> Client-side template injection via <code>{{constructor.constructor('code')()}}</code> sandbox escapes — historical but still asked in interviews.</li>
+        <li><strong>Fix:</strong> Never call <code>bypassSecurityTrust*</code> with user input. If rich text is needed, sanitize with DOMPurify before bypassing.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>Angular sanitizes by default</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Angular strips dangerous markup from all values bound via [innerHTML]. Observe that the "safe" output strips your event handler — but the "trusted" output doesn't.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>bypassSecurityTrust marks it as safe</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">When a developer calls <code>bypassSecurityTrustHtml(userInput)</code>, Angular skips sanitization entirely. Whatever you put in becomes raw HTML.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>The payload</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Enter <code>&lt;img src=x onerror=captureFlag()&gt;</code>. Notice the safe box strips the onerror; the trusted box executes it.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab18';
+const EXPECTED_FLAG = 'HUNT{i_told_angular_to_trust_me}';
+
+function captureFlag() {
+  fetch('/api/capture/lab18', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+// Simulate Angular's default sanitizer
+function angularSanitize(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  // Remove event handlers (simplified Angular sanitizer simulation)
+  tmp.querySelectorAll('*').forEach(el => {
+    Array.from(el.attributes).forEach(attr => {
+      if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
+    });
+    if (el.tagName === 'SCRIPT') el.remove();
+  });
+  return tmp.innerHTML;
+}
+
+function renderBio() {
+  const input = document.getElementById('bio-input').value;
+  // Safe: sanitized (simulated Angular default)
+  document.getElementById('safe-output').innerHTML = angularSanitize(input);
+  // VULNERABLE: bypassed sanitization
+  document.getElementById('trusted-output').innerHTML = input;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+});
+</script>
+</body>
+</html>

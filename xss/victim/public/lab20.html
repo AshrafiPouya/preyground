@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 20 — XSS Capstone | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab20" class="active">Lab 20</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 20 SOLVED — Full XSS → Account Takeover chain!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 20</span><span class="badge" style="background:rgba(248,81,73,0.15);color:var(--red);border:1px solid rgba(248,81,73,0.3);">Capstone</span></div>
+    <h1>XSS Hunt → Account Takeover</h1>
+    <p class="lab-header-desc">A realistic multi-feature app. Most inputs are safe — one has a real stored XSS. Find it, fingerprint the context, bypass the filter + CSP, and exfiltrate the admin's session flag to the attacker origin.</p>
+    <div class="panel" style="margin-top:12px;"><div class="panel-body">
+      <p style="font-size:13px;color:var(--yellow);"><strong>&#9888; No type hints this time.</strong> Enumerate every input surface. Not every field is vulnerable. <code>alert(1)</code> proves nothing — you need code running in the <em>admin's</em> session.</p>
+    </div></div>
+  </div>
+
+  <!-- Feature 1: Search (safe) -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128269;</span><span class="panel-title">Product Search</span></div>
+    <div class="panel-body">
+      <div style="display:flex;gap:8px;">
+        <input id="search-q" class="flag-input" style="flex:1;" placeholder="Search products…">
+        <button class="btn btn-ghost" onclick="doSearch()">Search</button>
+      </div>
+      <div id="search-results" style="margin-top:10px;font-size:13px;color:var(--text-muted);"></div>
+    </div>
+  </div>
+
+  <!-- Feature 2: Profile (safe) -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128100;</span><span class="panel-title">Your Profile</span></div>
+    <div class="panel-body">
+      <div id="profile-info" style="font-size:13px;color:var(--text-muted);">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Feature 3: Community Board (VULNERABLE — stored XSS + light filter) -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128172;</span><span class="panel-title">Community Board</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">Post a public message (admin moderates via <a href="/lab20/comments" target="_blank">the board</a>):</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <textarea id="comment-text" class="flag-input" style="height:70px;" placeholder="Your comment…"></textarea>
+        <button class="btn btn-primary" style="align-self:flex-start;" onclick="postComment()">Post Comment</button>
+      </div>
+      <div id="comment-alert" class="alert" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- Feature 4: Message inbox (ALSO VULNERABLE — no filter, no CSP) -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128140;</span><span class="panel-title">Message Admin</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">Send a private message to admin (admin reads these in their inbox):</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <textarea id="msg-text" class="flag-input" style="height:70px;" placeholder="Your message…"></textarea>
+        <button class="btn btn-primary" style="align-self:flex-start;" onclick="sendMessage()">Send Message</button>
+      </div>
+      <div id="msg-alert" class="alert" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Get the flag from the attacker exfil log at <a href="http://localhost:3001" target="_blank">localhost:3001</a>:</p>
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Attacker Log</span></div>
+    <div class="panel-body">
+      <div id="exfil-log" style="font-size:12px;font-family:var(--mono);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;min-height:60px;max-height:200px;overflow-y:auto;"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="refreshLog()">Refresh Log</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>Enumerate all surfaces</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">There are 4 input surfaces on this page. Not all are vulnerable. Test each one with a harmless probe (e.g. <code>&lt;b&gt;test&lt;/b&gt;</code>) and see which renders HTML.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>Admin bot visits two pages</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">The admin bot visits <code>/lab20/comments</code> (community board) and <code>/lab20/admin</code> (inbox). Both have the admin's flag cookie. Your payload must exfil to <code>http://localhost:3001/log</code>.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>Chain: find → context → bypass → exfil</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Community board has a <code>&lt;script&gt;</code> filter and weak CSP. Message inbox has neither. Once you land code in the admin's browser, read <code>document.cookie</code> or <code>ADMIN_FLAG</code> and POST to the attacker log.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab20';
+const EXPECTED_FLAG = 'HUNT{xss_to_account_takeover}';
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+  loadProfile();
+  refreshLog();
+});
+
+async function doSearch() {
+  const q = document.getElementById('search-q').value;
+  const res = await fetch('/lab20/search?q=' + encodeURIComponent(q));
+  const data = await res.json();
+  document.getElementById('search-results').textContent = data.results.join('\n');
+}
+
+async function loadProfile() {
+  const res = await fetch('/lab20/profile');
+  const data = await res.json();
+  document.getElementById('profile-info').textContent = 'Logged in as: ' + data.username + ' (' + data.role + ')';
+}
+
+async function postComment() {
+  const text = document.getElementById('comment-text').value;
+  await fetch('/lab20/comment', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'text='+encodeURIComponent(text)});
+  HuntLabs.showAlert(document.getElementById('comment-alert'), 'success', 'Comment posted! Admin will see it shortly.');
+  document.getElementById('comment-text').value = '';
+}
+
+async function sendMessage() {
+  const text = document.getElementById('msg-text').value;
+  await fetch('/lab20/message', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({to:'admin', text})});
+  HuntLabs.showAlert(document.getElementById('msg-alert'), 'success', 'Message sent to admin inbox.');
+  document.getElementById('msg-text').value = '';
+}
+
+async function refreshLog() {
+  try {
+    const res = await fetch('http://localhost:3001/log');
+    const data = await res.json();
+    const el = document.getElementById('exfil-log');
+    if (!data.length) { el.textContent = 'No beacons yet.'; return; }
+    el.innerHTML = data.slice(0, 10).map(e =>
+      `<div style="border-bottom:1px solid var(--border);padding:4px 0;word-break:break-all;">${JSON.stringify(e)}</div>`
+    ).join('');
+  } catch(e) { document.getElementById('exfil-log').textContent = 'Error: ' + e.message; }
+}
+</script>
+</body>
+</html>

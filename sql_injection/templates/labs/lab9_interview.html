@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Lab 9 Interview Prep — WAF Bypass | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab9.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 9</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-advanced">Advanced</span>
+    <span class="rating-stars"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★★★</span> Hunt</span>
+  </div>
+  <h1>WAF / Filter Bypass</h1>
+  <p class="subtitle">Near-constant in real hunting. "How would you bypass a WAF?" is a common curveball in pentest interviews.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"WAF bypass exploits the fundamental weakness of blacklist-based filters — they can't anticipate every form a payload can take. You encode, comment, case-vary, or reshape the payload so it bypasses the filter's pattern matching while remaining valid SQL to the database. Blacklists always have gaps; the database's parser is far more flexible than any filter."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">How do you bypass a keyword blacklist like blocking 'SELECT' and 'UNION'?</label><div class="qa-answer">Case variation: <code>SeLeCt</code>, <code>UnIoN</code> — if the filter is case-sensitive, uppercase mixing bypasses it. Inline comments: <code>UN/**/ION SEL/**/ECT</code> — SQL parsers ignore comments, most WAFs don't reconstruct the keyword. Double encoding: <code>%55NION</code> (URL encoded U). Nested keywords (for naive regex): <code>UNUNIONION</code> — if the filter strips 'UNION' once, the result is 'UNION'. Combine techniques if one alone fails.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">How do you bypass quote filtering?</label><div class="qa-answer">Hex literals: <code>0x48554e54</code> instead of 'HUNT'. CHAR() function: <code>CHAR(72,85,78,84)</code>. Numeric context: if the target value is numeric, no quotes are needed. Type coercion: some DBs coerce hex to strings automatically. These avoid the need for quotes entirely.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">How do you bypass space filtering?</label><div class="qa-answer">Inline comments as whitespace: <code>SELECT/**/flag/**/FROM/**/secrets</code>. Tab character: <code>%09</code>. Newline: <code>%0a</code>. Many SQL parsers accept any whitespace character where the standard expects a space. Parentheses also work as implicit delimiters in some contexts: <code>UNION(SELECT(flag)FROM(secrets))</code>.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q4"><label class="qa-question" for="q4">Why are blacklists fundamentally weak compared to allowlists?</label><div class="qa-answer">A blacklist defines what's forbidden — anything not on the list passes. It's impossible to enumerate all representations of SQL keywords across encoding schemes, case combinations, and comment styles. An allowlist defines what's permitted — everything else is rejected. For SQL injection specifically, the allowlist is: parameterized queries, full stop. Parameterized queries don't need a WAF because input can never change query structure.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Bypass Cheat Sheet</h2>
+    <table class="results-table" style="font-size:0.8rem;">
+      <thead><tr><th>Blocked</th><th>Bypass</th></tr></thead>
+      <tbody>
+        <tr><td>SELECT</td><td>SeLeCt / SEL/**/ECT / %53ELECT</td></tr>
+        <tr><td>UNION</td><td>UnIoN / UN/**/ION / UNUNIONION</td></tr>
+        <tr><td>' (quote)</td><td>0x48... (hex) / CHAR(72,...) / numeric context</td></tr>
+        <tr><td>space</td><td>/**/ / %09 / %0a / (parentheses)</td></tr>
+        <tr><td>OR/AND</td><td>|| / && / %7c%7c</td></tr>
+        <tr><td>--</td><td>#(MySQL) / /**/ / ;%00</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>A WAF is a layer, not a fix. Parameterized queries make WAF bypass irrelevant — even if the bypass works and the payload reaches the database, parameterization ensures it's treated as data, never as SQL code. The WAF is additional defense-in-depth, not a substitute for fixing the root cause.</p>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">SeLeCt flag FrOm secrets--</div>
+    <div class="oneliner">%' UN/**/ION SEL/**/ECT flag,NULL FROM secrets--</div>
+    <div class="oneliner">0x48554e54 (hex for 'HUNT')</div>
+    <div class="oneliner">CHAR(72,85,78,84) (CHAR() for 'HUNT')</div>
+    <div class="oneliner">SELECT/**/flag/**/FROM/**/secrets (space bypass)</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ "A WAF makes the app secure" — WAFs are bypassable and are mitigation, not remediation.</div>
+    <div class="red-flag-item">❌ Only knowing case variation — senior testers know the full toolkit: encoding, comments, hex, CHAR(), nested keywords.</div>
+    <div class="red-flag-item">❌ "Just block all SQL keywords" — this breaks legitimate queries and is still bypassable.</div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X5 — Cross-Site WebSocket Hijacking | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x5.html" class="active">X5</a>
+      <a href="x5_interview.html">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<!-- ── Solved Banner ─────────────────────────────────────── -->
+<div class="solved-banner" id="solved-banner">
+  <span class="confetti">&#127881;</span>
+  Lab X5 Solved — Cross-Site WebSocket Hijacking complete!
+  <span class="confetti">&#127881;</span>
+</div>
+
+<!-- ── Lab Page ──────────────────────────────────────────── -->
+<div class="lab-page">
+
+  <!-- ════════ MAIN COLUMN ════════ -->
+  <div class="lab-main">
+
+    <!-- Lab Header -->
+    <div class="lab-header">
+      <div class="lab-header-badges">
+        <span class="badge badge-lab">LAB X5</span>
+        <span class="badge badge-advanced">Advanced</span>
+      </div>
+      <h1>Cross-Site WebSocket Hijacking</h1>
+      <p class="lab-header-desc">
+        The WebSocket server authenticates connections using the session cookie — but never
+        validates the <code>Origin</code> header. Because browsers automatically include
+        cookies in WebSocket handshakes and SOP does <em>not</em> restrict cross-origin
+        WebSocket connections, any attacker page can connect as the victim and read the flag.
+      </p>
+      <div class="lab-header-actions">
+        <a href="x5_interview.html" class="btn btn-ghost btn-sm">&#128218; Interview Prep</a>
+        <a href="index.html" class="btn btn-ghost btn-sm">&#8592; Hub</a>
+      </div>
+      <div class="lab-header-meta">
+        <span>&#128363; Interview relevance:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star">★</span><span class="star">★</span>
+          </span>
+        </span>
+        <span>&#128269; Hunt frequency:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star">★</span><span class="star empty">☆</span>
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Live Feed Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128225;</span>
+        <span class="panel-title">Live Feed — WebSocket Client</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <span class="status-dot disconnected" id="ws-dot"></span>
+          <span id="ws-status" style="font-size:12px;color:var(--text-subtle);font-family:var(--mono);">disconnected</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <p>
+          This panel connects to the victim WebSocket endpoint
+          <code>ws://localhost:3000/ws/x5</code> using your session cookie.
+          The server broadcasts your account data including the flag.
+        </p>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="btn btn-primary" id="btn-connect">
+            &#9654; Connect to Feed
+          </button>
+          <button class="btn btn-danger" id="btn-disconnect" disabled>
+            &#9632; Disconnect
+          </button>
+        </div>
+
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono);">
+          WebSocket Message Log
+        </div>
+        <div class="terminal" id="ws-log" style="min-height:160px;max-height:300px;overflow-y:auto;">
+          <span class="hl-subtle">// Connect to see live messages from the server…</span>
+        </div>
+
+        <div id="ws-alert" class="alert" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- SOP + WebSocket panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128274;</span>
+        <span class="panel-title">Why SOP Does Not Protect WebSockets</span>
+      </div>
+      <div class="panel-body">
+        <div class="terminal" style="margin-bottom:14px;">
+<span class="hl-muted"> Regular HTTP fetch (cross-origin)</span>
+   Browser sends request
+   Server responds with data
+   <span class="hl-red">SOP blocks JS from reading the response</span> ← protected
+
+<span class="hl-muted"> WebSocket upgrade (cross-origin)</span>
+   Browser sends: GET /ws/x5 HTTP/1.1
+                  Origin: http://localhost:3001   <span class="hl-subtle">← always included</span>
+                  Cookie: session=abc123          <span class="hl-subtle">← cookies auto-sent</span>
+   Server sends: 101 Switching Protocols
+   <span class="hl-green">WebSocket connection established — SOP does NOT block this</span>
+   ws.onmessage = e =&gt; console.log(e.data)       <span class="hl-red">← attacker reads everything</span>
+        </div>
+        <p>
+          The WebSocket protocol allows cross-origin connections by design.
+          The <strong>only</strong> protection is an explicit server-side check of the
+          <code>Origin</code> header during the HTTP upgrade handshake.
+        </p>
+        <p>
+          Unlike CORS, there is no browser mechanism to enforce a same-origin policy on
+          WebSocket connections. The server must implement it manually.
+        </p>
+      </div>
+    </div>
+
+    <!-- Vulnerable Source -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128220;</span>
+        <span class="panel-title">Vulnerable Server Code</span>
+      </div>
+      <div class="panel-body">
+        <pre><code><span class="hl-subtle">// server.js — WebSocket handler without Origin check</span>
+<span class="hl-kw">const</span> wss = <span class="hl-kw">new</span> WebSocket.Server({ server });
+
+wss.on(<span class="hl-orange">'connection'</span>, (ws, req) =&gt; {
+  <span class="hl-subtle">// BUG: no Origin header check</span>
+  <span class="hl-subtle">// SAFE version:</span>
+  <span class="hl-subtle">// const origin = req.headers.origin;</span>
+  <span class="hl-subtle">// if (origin !== 'http://localhost:3000') { ws.close(4001, 'Forbidden'); return; }</span>
+
+  <span class="hl-subtle">// Authenticate via session cookie (cookies are sent automatically)</span>
+  <span class="hl-kw">const</span> session = parseSessionCookie(req.headers.cookie);
+  <span class="hl-kw">const</span> user    = session?.user || { username: <span class="hl-orange">'victim'</span> };
+
+  <span class="hl-subtle">// Send flag to every connection regardless of origin</span>
+  ws.send(<span class="hl-blue">JSON</span>.stringify({
+    type:     <span class="hl-orange">'welcome'</span>,
+    username: user.username,
+    flag:     <span class="hl-orange">'HUNT{websockets_ignore_sop_too}'</span>,
+    ts:       <span class="hl-kw">new</span> <span class="hl-blue">Date</span>().toISOString(),
+  }));
+
+  ws.on(<span class="hl-orange">'message'</span>, (data) =&gt; {
+    <span class="hl-subtle">// echo pings</span>
+    ws.send(<span class="hl-blue">JSON</span>.stringify({ type: <span class="hl-orange">'pong'</span>, echo: data.toString() }));
+  });
+});</code></pre>
+      </div>
+    </div>
+
+    <!-- Objective -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127919;</span>
+        <span class="panel-title">Objective</span>
+      </div>
+      <div class="panel-body">
+        <ul class="objective-list">
+          <li>
+            <span class="obj-num">1</span>
+            <span>Connect to the feed above (from the victim origin) to see what the server sends. Note the flag in the welcome message.</span>
+          </li>
+          <li>
+            <span class="obj-num">2</span>
+            <span>Navigate to the attacker origin (<a href="http://localhost:3001/x5.html" target="_blank" rel="noopener">http://localhost:3001/x5.html</a>)
+            and open a WebSocket to <code>ws://localhost:3000/ws/x5</code>. The victim's session cookie will be sent automatically.</span>
+          </li>
+          <li>
+            <span class="obj-num">3</span>
+            <span>Read the flag from the welcome message in the attacker page and submit it below.</span>
+          </li>
+        </ul>
+        <div style="margin-top:14px;padding:12px;background:rgba(210,153,34,0.08);border:1px solid rgba(210,153,34,0.2);border-radius:var(--radius);font-size:13px;color:var(--yellow);">
+          <strong>Console shortcut:</strong> Open DevTools on any page and run:<br/>
+          <code>const ws = new WebSocket('ws://localhost:3000/ws/x5'); ws.onmessage = e => console.log(JSON.parse(e.data));</code>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /lab-main -->
+
+  <!-- ════════ SIDEBAR ════════ -->
+  <div class="lab-sidebar">
+
+    <!-- Flag Submission -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127937;</span>
+        <span class="panel-title">Submit Flag</span>
+      </div>
+      <div class="panel-body">
+        <form class="flag-form" id="flag-form">
+          <input
+            type="text"
+            class="flag-input"
+            id="flag-input"
+            placeholder="HUNT{...}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="btn btn-primary btn-full">Submit Flag</button>
+        </form>
+        <div id="flag-alert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- Hints -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128161;</span>
+        <span class="panel-title">Hints</span>
+      </div>
+      <div class="panel-body">
+        <div class="hints-list">
+
+          <div class="hint-item" data-hint="1">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#1</span>
+                <span>Cookies &amp; WebSockets</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              WebSocket handshakes send cookies automatically — just like a normal HTTP
+              request. The Same-Origin Policy does <strong>not</strong> prevent cross-origin
+              WebSocket connections.
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="2">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#2</span>
+                <span>No Origin validation</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              Check the server's WebSocket handler. Does it validate the
+              <code>Origin</code> header on connection? If not, any page can connect
+              as the victim.
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="3">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#3</span>
+                <span>The exploit one-liner</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              From <code>attacker/public/x5.html</code>, run:<br/><br/>
+              <code style="display:block;word-break:break-all;">
+                const ws = new WebSocket('ws://localhost:3000/ws/x5');<br/>
+                ws.onmessage = e =&gt; {<br/>
+                &nbsp;&nbsp;const data = JSON.parse(e.data);<br/>
+                &nbsp;&nbsp;document.getElementById('out').textContent = data.flag;<br/>
+                };
+              </code><br/>
+              The browser auto-sends the victim's session cookie.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Payload Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128196;</span>
+        <span class="panel-title">Payload Log</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          style="margin-left:auto;"
+          onclick="localStorage.removeItem('huntlabs_xo_log_x5'); HuntLabs.renderPayloadLog('x5');"
+        >Clear</button>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div id="payload-log">
+          <div class="log-empty">No payloads logged yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /lab-sidebar -->
+
+</div><!-- /lab-page -->
+
+<script src="assets/main.js"></script>
+<script>
+  const LAB_ID        = 'x5';
+  const EXPECTED_FLAG = 'HUNT{websockets_ignore_sop_too}';
+
+  let socket = null;
+  const wsLogEntries = [];
+
+  function setWsStatus(state) {
+    const dot    = document.getElementById('ws-dot');
+    const status = document.getElementById('ws-status');
+    const btnCon = document.getElementById('btn-connect');
+    const btnDis = document.getElementById('btn-disconnect');
+
+    dot.className    = 'status-dot ' + state;
+    status.textContent = state;
+    btnCon.disabled  = (state === 'connected' || state === 'connecting');
+    btnDis.disabled  = (state === 'disconnected');
+  }
+
+  function appendWsLog(msg, cls) {
+    wsLogEntries.push({ msg, cls });
+    const el = document.getElementById('ws-log');
+    if (!el) return;
+    el.innerHTML = wsLogEntries.slice(-40).map(e =>
+      `<div style="margin-bottom:3px;"><span class="${e.cls || ''}">${HuntLabs.escHtml(e.msg)}</span></div>`
+    ).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function connectWs() {
+    if (socket && socket.readyState < 2) return;
+
+    const alertEl = document.getElementById('ws-alert');
+    setWsStatus('connecting');
+    appendWsLog('[' + new Date().toLocaleTimeString() + '] Connecting to ws://localhost:3000/ws/x5…', 'hl-yellow');
+
+    try {
+      socket = new WebSocket('ws://localhost:3000/ws/x5');
+    } catch(e) {
+      setWsStatus('disconnected');
+      HuntLabs.showAlert(alertEl, 'error', '&#10007; WebSocket creation failed: ' + e.message);
+      return;
+    }
+
+    socket.addEventListener('open', () => {
+      setWsStatus('connected');
+      appendWsLog('[' + new Date().toLocaleTimeString() + '] Connection established.', 'hl-green');
+      HuntLabs.logPayload(LAB_ID, 'ws://localhost:3000/ws/x5', 'WebSocket connected');
+      HuntLabs.renderPayloadLog(LAB_ID);
+    });
+
+    socket.addEventListener('message', (e) => {
+      let parsed;
+      try { parsed = JSON.parse(e.data); } catch { parsed = { raw: e.data }; }
+
+      const display = JSON.stringify(parsed, null, 2);
+      appendWsLog('[' + new Date().toLocaleTimeString() + '] Received: ' + JSON.stringify(parsed), 'hl-blue');
+
+      if (parsed.flag) {
+        appendWsLog('  → FLAG: ' + parsed.flag, 'hl-red');
+        HuntLabs.logPayload(LAB_ID, parsed.flag, 'WebSocket message — flag received');
+        HuntLabs.renderPayloadLog(LAB_ID);
+        HuntLabs.showAlert(document.getElementById('ws-alert'), 'success', '&#127937; Flag received in WebSocket message! Submit it below.');
+      }
+    });
+
+    socket.addEventListener('close', (e) => {
+      setWsStatus('disconnected');
+      appendWsLog('[' + new Date().toLocaleTimeString() + '] Disconnected (code ' + e.code + ').', 'hl-subtle');
+      socket = null;
+    });
+
+    socket.addEventListener('error', () => {
+      setWsStatus('disconnected');
+      appendWsLog('[error] Connection failed — is the server running?', 'hl-red');
+      HuntLabs.showAlert(document.getElementById('ws-alert'), 'error', '&#10007; WebSocket connection failed.');
+      socket = null;
+    });
+  }
+
+  function disconnectWs() {
+    if (socket) { socket.close(); socket = null; }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+    setWsStatus('disconnected');
+
+    document.getElementById('btn-connect').addEventListener('click', connectWs);
+    document.getElementById('btn-disconnect').addEventListener('click', disconnectWs);
+  });
+</script>
+</body>
+</html>

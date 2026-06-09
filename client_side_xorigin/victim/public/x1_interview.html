@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X1 Interview Prep — CORS Origin Reflection | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x1.html">X1 Lab</a>
+      <a href="x1_interview.html" class="active">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<div class="interview-page">
+
+  <div class="interview-back">
+    <a href="x1.html" class="btn btn-ghost btn-sm">&#8592; Back to Lab X1</a>
+    <a href="index.html" class="btn btn-ghost btn-sm">&#8962; Hub</a>
+  </div>
+
+  <div class="interview-header">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <span class="badge badge-lab">LAB X1</span>
+      <span class="badge badge-beginner">Beginner</span>
+    </div>
+    <h1>Interview Prep — CORS Origin Reflection</h1>
+    <p>Common interview questions, model answers, one-liner bypasses, and red flags for CORS misconfiguration reviews.</p>
+  </div>
+
+  <!-- 30-second explanation -->
+  <div class="interview-section">
+    <h2>30-Second Explanation</h2>
+    <div class="thirty-sec">
+      CORS lets servers grant cross-origin JavaScript read access to their responses.
+      The server signals permission with the <code>Access-Control-Allow-Origin</code> (ACAO)
+      header. A vulnerable pattern is <em>origin reflection</em>: the server copies the
+      incoming <code>Origin</code> request header directly into the ACAO response header.
+      Combined with <code>Access-Control-Allow-Credentials: true</code>, this lets any
+      attacker-controlled page issue authenticated fetch requests and read the response —
+      bypassing the entire purpose of the Same-Origin Policy. The fix is an explicit
+      allowlist of trusted origins validated with exact string equality.
+    </div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="interview-section">
+    <h2>Q &amp; A</h2>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What is CORS, and why does the browser enforce it?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        CORS (Cross-Origin Resource Sharing) is an HTTP-header mechanism that lets servers
+        relax the Same-Origin Policy for specific trusted origins. Without CORS headers,
+        browser JS can initiate a cross-origin request but cannot read the response —
+        the browser enforces this restriction to prevent malicious pages from silently
+        reading authenticated data on other sites the user is logged into.
+        Servers opt in to cross-origin reads by emitting <code>Access-Control-Allow-Origin</code>
+        in their response.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What makes "origin reflection" dangerous?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        Origin reflection means the server copies the <code>Origin</code> request header
+        verbatim into <code>Access-Control-Allow-Origin</code>. When paired with
+        <code>Access-Control-Allow-Credentials: true</code>, this effectively tells the
+        browser: "trust any origin and allow it to read credentialed responses." Because
+        the browser includes session cookies on the request, the attacker's page can
+        read the victim's authenticated data — bypassing CORS entirely.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">Why can't you use <code>Access-Control-Allow-Origin: *</code> with credentials?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        The Fetch specification explicitly forbids it. When
+        <code>Access-Control-Allow-Credentials: true</code> is set, the browser requires
+        ACAO to be an exact, non-wildcard origin. The wildcard
+        (<code>*</code>) means "allow any origin without credentials." Allowing both
+        credentials and a wildcard origin would be equivalent to removing the SOP
+        entirely. Developers who need to support many origins and credentials must
+        implement a server-side allowlist and reflect the matched origin exactly.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How would you find a CORS reflection vulnerability in a bug bounty target?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <ol style="color:var(--text-muted);font-size:14px;line-height:1.8;">
+          <li>In Burp Suite, browse the authenticated app and look for API responses with CORS headers.</li>
+          <li>In the Repeater, add a synthetic <code>Origin: https://evil.com</code> header to any authenticated request.</li>
+          <li>Check whether the response echoes it back in ACAO and also has <code>ACAC: true</code>.</li>
+          <li>Confirm exploitability: write a PoC page on your server that fetches the endpoint with <code>{credentials:'include'}</code> and verifies you can read the authenticated response body.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How do you fix origin reflection?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        Maintain a server-side allowlist of trusted origins (exact strings) and compare
+        the incoming <code>Origin</code> header against it with strict equality. Only set
+        ACAO to the matched origin — never to a reflected value or wildcard when credentials
+        are involved. Reject all other origins by omitting the CORS headers entirely.
+        <pre style="margin-top:10px;"><code>const ALLOWED = ['https://app.example.com', 'https://admin.example.com'];
+if (ALLOWED.includes(req.headers.origin)) {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');  // cache correctness
+}</code></pre>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bypass one-liners -->
+  <div class="interview-section">
+    <h2>Bypass One-Liners</h2>
+
+    <div class="oneliner">
+      fetch('https://victim.com/api/data', {credentials:'include'}).then(r=&gt;r.json()).then(console.log)
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+      Works from any page when the server reflects the attacker's origin and allows credentials.
+    </p>
+
+    <div class="oneliner">
+      // Test in Burp — add header to any authenticated request:
+      Origin: https://evil.com
+      // Check response for: Access-Control-Allow-Origin: https://evil.com + ACAC: true
+    </div>
+  </div>
+
+  <!-- Developer Fix -->
+  <div class="interview-section">
+    <h2>Developer Fix</h2>
+    <div class="fix-box">
+      <p style="color:var(--green);font-weight:600;margin-bottom:8px;">Exact allowlist with Vary header</p>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:0;">
+        The <code>Vary: Origin</code> header is required so CDNs and proxies don't cache a
+        response with one origin's ACAO and serve it to a different origin.
+      </p>
+      <pre><code>const ALLOWED_ORIGINS = new Set([
+  'https://app.example.com',
+  'https://admin.example.com',
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+  next();
+});</code></pre>
+    </div>
+  </div>
+
+  <!-- Red Flags -->
+  <div class="interview-section">
+    <h2>Red Flags in Code Review</h2>
+
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>res.setHeader('Access-Control-Allow-Origin', req.headers.origin)</code> — unconditional reflection</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>Access-Control-Allow-Origin: *</code> combined with <code>Access-Control-Allow-Credentials: true</code></span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>CORS handler that sets ACAO to the origin from a regex match or substring check, not exact equality</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Missing <code>Vary: Origin</code> header when origin-dependent CORS headers are set</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Internal/admin APIs with <code>ACAC: true</code> accessible from any origin</span>
+    </div>
+  </div>
+
+</div><!-- /interview-page -->
+
+<script src="assets/main.js"></script>
+<script>
+  document.querySelectorAll('.qa-question').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.closest('.qa-item');
+      item.classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>

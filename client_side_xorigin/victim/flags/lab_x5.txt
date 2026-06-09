@@ -1,0 +1,1 @@
+HUNT{websockets_ignore_sop_too}

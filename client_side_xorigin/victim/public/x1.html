@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X1 — CORS Origin Reflection | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x1.html" class="active">X1</a>
+      <a href="x1_interview.html">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<!-- ── Solved Banner ─────────────────────────────────────── -->
+<div class="solved-banner" id="solved-banner">
+  <span class="confetti">&#127881;</span>
+  Lab X1 Solved — CORS Origin Reflection conquered!
+  <span class="confetti">&#127881;</span>
+</div>
+
+<!-- ── Lab Page ──────────────────────────────────────────── -->
+<div class="lab-page">
+
+  <!-- ════════ MAIN COLUMN ════════ -->
+  <div class="lab-main">
+
+    <!-- Lab Header -->
+    <div class="lab-header">
+      <div class="lab-header-badges">
+        <span class="badge badge-lab">LAB X1</span>
+        <span class="badge badge-beginner">Beginner</span>
+      </div>
+      <h1>CORS Origin Reflection</h1>
+      <p class="lab-header-desc">
+        The victim API blindly reflects whichever <code>Origin</code> header the browser
+        sends back as <code>Access-Control-Allow-Origin</code>, combined with
+        <code>Access-Control-Allow-Credentials: true</code>. Any origin can read the
+        authenticated response — including one you control.
+      </p>
+      <div class="lab-header-actions">
+        <a href="x1_interview.html" class="btn btn-ghost btn-sm">&#128218; Interview Prep</a>
+        <a href="index.html" class="btn btn-ghost btn-sm">&#8592; Hub</a>
+      </div>
+      <div class="lab-header-meta">
+        <span>&#128363; Interview relevance:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star">★</span><span class="star empty">☆</span>
+          </span>
+        </span>
+        <span>&#128269; Hunt frequency:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star empty">☆</span><span class="star empty">☆</span>
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <!-- API Demo Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128241;</span>
+        <span class="panel-title">Authenticated Account API</span>
+      </div>
+      <div class="panel-body">
+        <div class="info-grid">
+          <div class="info-cell">
+            <div class="info-cell-label">Endpoint</div>
+            <div class="info-cell-value">GET /api/x1/account</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Auth</div>
+            <div class="info-cell-value">Session cookie (HttpOnly)</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Your origin</div>
+            <div class="info-cell-value" id="your-origin">—</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Attacker origin</div>
+            <div class="info-cell-value" style="color:var(--red);">http://localhost:3001</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-fetch-victim">
+          &#9654; Fetch Account (from victim origin)
+        </button>
+
+        <div style="margin-top:16px;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono);">Response Body</div>
+          <div class="response-area" id="resp-body">Click the button above to make a credentialed request...</div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono);">Response Headers</div>
+          <div class="terminal" id="resp-headers" style="min-height:80px;">
+            <span class="hl-subtle">// headers will appear here</span>
+          </div>
+        </div>
+
+        <div id="fetch-alert" class="alert" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- What to Look For -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128270;</span>
+        <span class="panel-title">What to Look For</span>
+      </div>
+      <div class="panel-body">
+        <p>
+          After clicking "Fetch Account", open the Network tab in DevTools and inspect the response headers.
+          The dangerous pattern is when <em>both</em> of these appear together:
+        </p>
+        <div class="terminal" style="margin:12px 0;">
+<span class="hl-blue">Access-Control-Allow-Origin:</span>  <span class="hl-red">https://attacker.example.com</span>   <span class="hl-subtle">← reflects your origin verbatim</span>
+<span class="hl-blue">Access-Control-Allow-Credentials:</span> <span class="hl-yellow">true</span>                              <span class="hl-subtle">← allows cookies to be read</span>
+        </div>
+        <p>
+          A browser will only expose a credentialed response to JavaScript when
+          <code>ACAO</code> is an <em>exact non-wildcard origin</em> and
+          <code>ACAC</code> is <code>true</code>. Reflecting the caller's origin
+          satisfies both conditions for any caller.
+        </p>
+        <p>
+          <strong>Why wildcard + credentials is impossible:</strong> The spec
+          <a href="https://fetch.spec.whatwg.org/#cors-protocol-and-credentials" target="_blank" rel="noopener">
+            forbids</a> <code>Access-Control-Allow-Origin: *</code> together with credentials.
+          Reflection is a misguided workaround that destroys the protection.
+        </p>
+      </div>
+    </div>
+
+    <!-- Vulnerable Source -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128220;</span>
+        <span class="panel-title">Vulnerable Server Code</span>
+      </div>
+      <div class="panel-body">
+        <pre><code><span class="hl-subtle">// routes/x1.js — the vulnerable CORS handler</span>
+app.get(<span class="hl-orange">'/api/x1/account'</span>, (req, res) =&gt; {
+  <span class="hl-subtle">// BUG: reflect every Origin header back as ACAO</span>
+  <span class="hl-kw">const</span> origin = req.headers[<span class="hl-orange">'origin'</span>];
+  <span class="hl-kw">if</span> (origin) {
+    res.setHeader(<span class="hl-orange">'Access-Control-Allow-Origin'</span>, origin); <span class="hl-subtle">// ← any origin allowed</span>
+    res.setHeader(<span class="hl-orange">'Access-Control-Allow-Credentials'</span>, <span class="hl-orange">'true'</span>);
+  }
+
+  <span class="hl-subtle">// Return authenticated data</span>
+  <span class="hl-kw">const</span> user = req.session?.user || { username: <span class="hl-orange">'victim'</span>, role: <span class="hl-orange">'user'</span> };
+  res.json({
+    username: user.username,
+    email:    <span class="hl-orange">'victim@example.com'</span>,
+    role:     user.role,
+    flag:     <span class="hl-orange">'HUNT{origin_reflection_leaks_creds}'</span>,
+  });
+});</code></pre>
+      </div>
+    </div>
+
+    <!-- Objective -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127919;</span>
+        <span class="panel-title">Objective</span>
+      </div>
+      <div class="panel-body">
+        <ul class="objective-list">
+          <li>
+            <span class="obj-num">1</span>
+            <span>Use this page to observe the reflection: click "Fetch Account" and inspect the
+            <code>Access-Control-Allow-Origin</code> response header.</span>
+          </li>
+          <li>
+            <span class="obj-num">2</span>
+            <span>Navigate to the attacker origin (<a href="http://localhost:3001/x1.html" target="_blank" rel="noopener">http://localhost:3001/x1.html</a>)
+            and run the exploit — fetch <code>/api/x1/account</code> with credentials from a different origin and read the JSON.</span>
+          </li>
+          <li>
+            <span class="obj-num">3</span>
+            <span>Copy the flag from the JSON response and submit it below.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /lab-main -->
+
+  <!-- ════════ SIDEBAR ════════ -->
+  <div class="lab-sidebar">
+
+    <!-- Flag Submission -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127937;</span>
+        <span class="panel-title">Submit Flag</span>
+      </div>
+      <div class="panel-body">
+        <form class="flag-form" id="flag-form">
+          <input
+            type="text"
+            class="flag-input"
+            id="flag-input"
+            placeholder="HUNT{...}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="btn btn-primary btn-full">Submit Flag</button>
+        </form>
+        <div id="flag-alert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- Hints -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128161;</span>
+        <span class="panel-title">Hints</span>
+      </div>
+      <div class="panel-body">
+        <div class="hints-list">
+
+          <div class="hint-item" data-hint="1">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#1</span>
+                <span>Inspect the response headers</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              Open the victim app's response headers. What value is in
+              <code>Access-Control-Allow-Origin</code>, and where did it come from?
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="2">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#2</span>
+                <span>Credentials with any origin</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              If the server echoes <em>your</em> origin back and allows credentials,
+              your page can read the response with
+              <code>fetch(url, { credentials: 'include' })</code>.
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="3">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#3</span>
+                <span>The exploit page</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              Host a page on the attacker origin (<code>:3001</code>) that fetches
+              <code>http://localhost:3000/api/x1/account</code> with credentials and
+              reads the JSON response. The server will reflect <code>http://localhost:3001</code>
+              back, allowing the read.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Payload Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128196;</span>
+        <span class="panel-title">Payload Log</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          style="margin-left:auto;"
+          onclick="localStorage.removeItem('huntlabs_xo_log_x1'); HuntLabs.renderPayloadLog('x1');"
+        >Clear</button>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div id="payload-log">
+          <div class="log-empty">No payloads logged yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /lab-sidebar -->
+
+</div><!-- /lab-page -->
+
+<script src="assets/main.js"></script>
+<script>
+  const LAB_ID       = 'x1';
+  const EXPECTED_FLAG = 'HUNT{origin_reflection_leaks_creds}';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Display current origin
+    document.getElementById('your-origin').textContent = location.origin;
+
+    // Init flag form
+    HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+
+    // Fetch demo button
+    document.getElementById('btn-fetch-victim').addEventListener('click', async () => {
+      const bodyEl    = document.getElementById('resp-body');
+      const headersEl = document.getElementById('resp-headers');
+      const alertEl   = document.getElementById('fetch-alert');
+
+      bodyEl.textContent    = 'Fetching…';
+      headersEl.textContent = '';
+
+      try {
+        const res = await fetch('/api/x1/account', { credentials: 'include' });
+        const json = await res.json();
+        bodyEl.textContent = JSON.stringify(json, null, 2);
+
+        // Render headers
+        const cors = {
+          'access-control-allow-origin':      res.headers.get('access-control-allow-origin'),
+          'access-control-allow-credentials': res.headers.get('access-control-allow-credentials'),
+          'content-type':                     res.headers.get('content-type'),
+        };
+
+        headersEl.innerHTML = Object.entries(cors).filter(([,v]) => v).map(([name, val]) => {
+          const isACO = name === 'access-control-allow-origin';
+          const cls   = isACO ? 'hl-red' : 'hl-green';
+          return `<span class="hl-blue">${HuntLabs.escHtml(name)}:</span> <span class="${cls}">${HuntLabs.escHtml(val)}</span>`;
+        }).join('\n');
+
+        HuntLabs.logPayload(LAB_ID, 'GET /api/x1/account', 'Victim-origin fetch');
+        HuntLabs.renderPayloadLog(LAB_ID);
+
+        HuntLabs.showAlert(alertEl, 'success', '&#10003; Response received — check the headers!');
+      } catch(e) {
+        bodyEl.textContent = 'Error: ' + e.message;
+        HuntLabs.showAlert(alertEl, 'error', '&#10007; Fetch failed: ' + e.message);
+      }
+    });
+  });
+</script>
+</body>
+</html>

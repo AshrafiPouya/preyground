@@ -1,0 +1,1 @@
+HUNT{null_and_regex_both_lose}

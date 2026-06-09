@@ -1,0 +1,11 @@
+{
+  "name": "hunt-labs-xorigin-victim",
+  "version": "1.0.0",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "ws": "^8.16.0",
+    "cookie-parser": "^1.4.6"
+  }
+}

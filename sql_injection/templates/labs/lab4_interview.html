@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Lab 4 Interview Prep — Schema Enumeration | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab4.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 4</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-intermediate">Intermediate</span>
+    <span class="rating-stars"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Hunt</span>
+  </div>
+  <h1>Schema Enumeration</h1>
+  <p class="subtitle">Knowing <code>information_schema</code> by name impresses interviewers. Know the cross-DB variants.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"Once you have SQL injection, you almost never know the table and column names up front. So you query the database's own metadata — information_schema in MySQL/PostgreSQL/MSSQL, sqlite_master in SQLite, ALL_TABLES in Oracle — to enumerate every table and column, then extract from the one containing sensitive data."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">How do you enumerate tables and columns after finding injection?</label><div class="qa-answer">Query <code>information_schema.tables</code> for table names, then <code>information_schema.columns</code> filtered by table_name for column names. Use GROUP_CONCAT to dump many rows at once: <code>SELECT GROUP_CONCAT(table_name) FROM information_schema.tables WHERE table_schema=database()</code>. In SQLite: <code>SELECT GROUP_CONCAT(name) FROM sqlite_master WHERE type='table'</code>.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">What is information_schema?</label><div class="qa-answer">information_schema is a virtual database (or schema) present in MySQL, PostgreSQL, and MSSQL that contains metadata about all databases, tables, columns, and their properties — data types, character sets, privileges. It's read-only and always accessible to any connected user (unless privileges are restricted). Knowing it's universally available and queryable via SQL is the key insight.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">How does this differ across databases?</label><div class="qa-answer">MySQL/PostgreSQL/MSSQL: <code>information_schema.tables</code> and <code>information_schema.columns</code>. SQLite: <code>sqlite_master</code> (table name, SQL CREATE statement). Oracle: <code>ALL_TABLES</code>, <code>ALL_COLUMNS</code>, <code>ALL_TAB_COLUMNS</code> — no information_schema. Postgres also has <code>pg_catalog</code> as an alternative. Knowing these by name is what separates a practiced tester from someone who only knows theory.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>You can't hide the schema from a successful injection — it's by design part of the database. The fix is upstream: parameterized queries prevent injection, and least-privilege accounts can limit which tables are readable even if injection occurs.</p>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">SELECT table_name FROM information_schema.tables WHERE table_schema=database()</div>
+    <div class="oneliner">SELECT column_name FROM information_schema.columns WHERE table_name='users'</div>
+    <div class="oneliner">SELECT GROUP_CONCAT(table_name) FROM information_schema.tables-- (dump all at once)</div>
+    <div class="oneliner">SELECT name FROM sqlite_master WHERE type='table'-- (SQLite)</div>
+    <div class="oneliner">SELECT table_name FROM ALL_TABLES-- (Oracle)</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ Assuming every database has information_schema — Oracle doesn't; SQLite uses sqlite_master.</div>
+    <div class="red-flag-item">❌ Not knowing GROUP_CONCAT or its cross-DB equivalents (STRING_AGG in PostgreSQL/MSSQL).</div>
+    <div class="red-flag-item">❌ Thinking schema is hidden from injection — it's always accessible via metadata tables.</div>
+  </div>
+</div>
+{% endblock %}

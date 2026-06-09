@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Lab 6 Interview Prep — Time-Based Blind | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab6.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 6</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-advanced">Advanced</span>
+    <span class="rating-stars"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★★★</span> Hunt</span>
+  </div>
+  <h1>Time-Based Blind SQL Injection</h1>
+  <p class="subtitle">Know the delay functions per DBMS cold — this is the first follow-up after boolean blind.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"Time-based blind SQLi is the last resort — when the response is completely identical regardless of input, you make the database pause execution when a condition is true and infer data from how long the response takes. It's slower and noisier than boolean but works even when there's zero behavioral difference in the output."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">When would you use time-based over boolean blind?</label><div class="qa-answer">When there is literally no observable difference in the HTTP response between true and false conditions — same body, same status, same length. This happens on INSERT/UPDATE/DELETE endpoints that return no data, or apps that return identical "success" pages regardless of internal state. Time-based uses response delay as the only channel.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">Name the delay functions for each major database.</label><div class="qa-answer">MySQL: <code>SLEEP(n)</code>. PostgreSQL: <code>pg_sleep(n)</code>. MSSQL: <code>WAITFOR DELAY '0:0:n'</code>. Oracle: <code>dbms_pipe.receive_message('x',n)</code> or heavy queries. SQLite: no native sleep; use recursive CTEs for CPU-based delay. This is one of the highest-signal questions for detecting DB-awareness — wrong answers here stand out.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">How do you deal with network jitter?</label><div class="qa-answer">Use a threshold significantly above baseline latency (e.g., if baseline is 50ms, use a 3s sleep and threshold of 2s). For noisy environments: repeat each request 3 times and take the median; abort if variance is too high. Sqlmap uses a similar averaging approach. The key is distinguishing a deliberate delay from natural variance.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>Same fix as all SQLi: parameterized queries. Note the important lesson: even an endpoint that returns nothing — a "black box" INSERT that always says "success" — is fully exploitable via timing. "It returns nothing" is not a defense.</p>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">'; SELECT SLEEP(5)-- (MySQL — in SELECT/WHERE context)</div>
+    <div class="oneliner">'; SELECT pg_sleep(5)-- (PostgreSQL)</div>
+    <div class="oneliner">'; WAITFOR DELAY '0:0:5'-- (MSSQL)</div>
+    <div class="oneliner">x' AND IF((SELECT SUBSTR(flag,1,1) FROM secrets)='H',SLEEP(3),0)-- (MySQL WHERE context)</div>
+    <div class="oneliner">x@x.com' AND sleep(3) AND '1'='1 (SQLite INSERT VALUES context — no -- needed)</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ Using SLEEP() for MSSQL or PostgreSQL — SLEEP is MySQL only. Shows shallow cross-DB knowledge.</div>
+    <div class="red-flag-item">❌ Not acknowledging jitter as a problem — production networks have baseline latency that can cause false positives.</div>
+    <div class="red-flag-item">❌ Treating time-based as the first choice — it's always the last resort; boolean blind is preferred when any signal exists.</div>
+  </div>
+</div>
+{% endblock %}

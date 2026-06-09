@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Lab 8 — Second-Order Injection | Hunt Labs{% endblock %}
+{% block nav_extra %}<a href="{{ url_for('lab8.interview') }}">Interview Prep</a>{% endblock %}
+
+{% block content %}
+<div class="page lab-page">
+  {% if solved %}<div class="solved-banner"><div class="solved-banner-icon">🎉</div><div><div class="solved-banner-text">Lab Complete!</div><div class="solved-banner-sub">You stored a payload that fired in a different, later query.</div></div></div>{% endif %}
+
+  <div class="lab-header">
+    <div class="lab-header-info">
+      <div class="lab-header-meta">
+        <span class="badge badge-advanced">Advanced</span>
+        <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">LAB 08</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Hunt</span>
+      </div>
+      <h1>Second-Order SQL Injection</h1>
+      <p class="lab-header-desc">Registration is safe (parameterized INSERT). But when you <em>view a profile</em>, the stored username is re-used in an unparameterized SELECT. The injection fires in a different query, not where you entered it.</p>
+    </div>
+    <div class="lab-header-actions">
+      <a href="{{ url_for('lab8.interview') }}" class="btn btn-ghost btn-sm">Interview Prep</a>
+      <form method="post" action="{{ url_for('lab8.reset') }}" onsubmit="return confirm('Reset?')">
+        <button type="submit" class="btn btn-danger btn-sm">Reset</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="lab-body">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Step 1: Register -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Step 1: Register a User</span>
+          <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--accent)">INSERT uses parameterized query ✓</span>
+        </div>
+        <div class="panel-body">
+          <form method="post" action="{{ url_for('lab8.register') }}" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;gap:8px;">
+              <input type="text" name="username" placeholder="Username (craft your payload here)" style="flex:2" autocomplete="off" maxlength="80">
+              <input type="password" name="password" placeholder="Any password" style="flex:1">
+              <button type="submit" class="btn btn-primary btn-sm">Register</button>
+            </div>
+          </form>
+          {% if register_result %}
+          <div class="alert {{ 'alert-success' if register_result.user_id else 'alert-error' }}" style="margin-top:12px;">
+            {% if register_result.user_id %}
+            Registered: <strong>{{ register_result.username | e }}</strong> (ID: {{ register_result.user_id }})
+            — <strong>Now view their profile!</strong>
+            {% else %}
+            Error: {{ register_result.error }}
+            {% endif %}
+          </div>
+          {% if register_result.user_id %}
+          <div class="terminal" style="margin-top:8px;">
+            <span class="comment"># Registration query (parameterized — payload stored safely)</span><br>
+            <span class="query">INSERT INTO users (username) VALUES (?)</span><br>
+            <span class="comment"># Stored value: {{ register_result.username | e }}</span>
+          </div>
+          <a href="{{ url_for('lab8.profile', user_id=register_result.user_id) }}" class="btn btn-primary btn-sm" style="margin-top:8px;">
+            View Profile for User {{ register_result.user_id }} →
+          </a>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Step 2: View Profile -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Step 2: View Profile (triggers second query)</span>
+          <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--red)">Profile SELECT is NOT parameterized ✗</span>
+        </div>
+        <div class="panel-body">
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Enter a user ID to view their profile. This re-uses the stored username in a raw query.</p>
+          <form method="get" action="" style="display:flex;gap:8px;">
+            <input type="number" id="uid-input" placeholder="User ID" min="1" style="max-width:120px;">
+            <button type="button" onclick="window.location='/lab8/profile/'+document.getElementById('uid-input').value" class="btn btn-ghost btn-sm">View Profile</button>
+          </form>
+
+          {% if profile_result %}
+          <div style="margin-top:12px;">
+            {% if profile_result.error %}
+            <div class="alert alert-error"><strong>Error:</strong> <code>{{ profile_result.error }}</code></div>
+            {% elif profile_result.profile %}
+            <div class="alert alert-success">
+              Profile data: <code>{{ profile_result.profile | string | e }}</code>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">No profile found — but the query still ran.</div>
+            {% endif %}
+            {% if profile_result.query %}
+            <div class="terminal" style="margin-top:8px;">
+              <span class="comment"># Profile query (VULNERABLE — uses stored username)</span><br>
+              <span class="query">{{ profile_result.query | e }}</span>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Objective</span></div>
+        <div class="panel-body" style="font-size:0.875rem;color:var(--text-muted);display:flex;flex-direction:column;gap:8px;">
+          <div>1. Register with a username that contains a SQL payload (e.g. <code>x' UNION SELECT flag,2,3 FROM secrets--</code>).</div>
+          <div>2. The payload is stored safely — but it fires when the profile page reads it back into an unparameterized query.</div>
+          <div>3. The profile query has 3 columns: <code>username, bio, avatar</code>.</div>
+          <div class="alert alert-info" style="margin:0"><strong>Key insight:</strong> Sanitizing input at entry time doesn't help if the stored value is later used unsafely.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+        <div class="panel-body">
+          {% if flag_error %}<div class="alert alert-error" data-dismiss="4000">Incorrect flag.</div>{% endif %}
+          {% if solved %}<div class="alert alert-success">Flag accepted!</div>
+          {% else %}
+          <form method="post" action="{{ url_for('lab8.submit_flag') }}" class="flag-form">
+            <input class="flag-input" type="text" name="flag" placeholder="HUNT{...}" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-full">Submit</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Hints</span><span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">{{ hints_revealed | length }}/3</span></div>
+        <div class="panel-body">
+          <div class="hints-list">
+            {% for i in range(1, 4) %}
+            <div class="hint-item">
+              <div class="hint-header">Hint {{ i }}{% if i not in hints_revealed %}<form method="post" action="{{ url_for('lab8.hint', n=i) }}" style="margin:0"><button type="submit" class="btn btn-ghost btn-sm">Reveal</button></form>{% endif %}</div>
+              {% if i in hints_revealed %}<div class="hint-content">{{ hints[i-1] | safe }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Payload Log</span></div>
+        <div class="panel-body">
+          <div class="payload-log">
+            {% for entry in payload_log[:8] %}<div class="log-entry" title="Click to copy"><div class="log-payload">{{ entry.payload | e }}</div><div class="log-context">{{ entry.context }}</div></div>{% endfor %}
+            {% if not payload_log %}<div class="log-empty">No payloads yet.</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

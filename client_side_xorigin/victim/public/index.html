@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hunt Labs — Client-Side &amp; Cross-Origin</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html" class="active">Hub</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main ─────────────────────────────────────────────── -->
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-label">// Module 02</div>
+    <h1>Client-Side &amp; Cross-Origin</h1>
+    <p class="hero-sub">
+      Master the Same-Origin Policy, CORS misconfigurations, postMessage vulnerabilities,
+      reverse tabnabbing, and WebSocket hijacking in a hands-on, two-origin lab environment.
+    </p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-num">5</span>
+        <span class="hero-stat-label">Labs</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-num" id="hero-solved">0</span>
+        <span class="hero-stat-label">Solved</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-num">2</span>
+        <span class="hero-stat-label">Origins in play</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOP Explainer -->
+  <div class="panel" style="margin-bottom:32px;">
+    <div class="panel-header">
+      <span class="panel-title-icon">&#128274;</span>
+      <span class="panel-title">Same-Origin Policy — Quick Reference</span>
+    </div>
+    <div class="panel-body">
+      <p>
+        An <strong>origin</strong> is the combination of <code>scheme + host + port</code>.
+        Two URLs share an origin only when <em>all three</em> components match exactly.
+        The browser's Same-Origin Policy prevents JavaScript on one origin from reading
+        responses from a different origin — unless the server explicitly grants permission.
+      </p>
+
+      <table class="origin-table">
+        <thead>
+          <tr>
+            <th>URL A</th>
+            <th>URL B</th>
+            <th>Same origin?</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>http://localhost:3000/foo</td>
+            <td>http://localhost:3000/bar</td>
+            <td class="ok">&#10003; Yes</td>
+            <td>Same scheme, host, port</td>
+          </tr>
+          <tr>
+            <td>http://localhost:3000</td>
+            <td>http://localhost:3001</td>
+            <td class="no">&#10007; No</td>
+            <td>Different port</td>
+          </tr>
+          <tr>
+            <td>http://localhost:3000</td>
+            <td>https://localhost:3000</td>
+            <td class="no">&#10007; No</td>
+            <td>Different scheme</td>
+          </tr>
+          <tr>
+            <td>http://app.example.com</td>
+            <td>http://api.example.com</td>
+            <td class="no">&#10007; No</td>
+            <td>Different subdomain</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <p style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px;">SOP Blocks (cross-origin JS cannot…)</p>
+          <ul style="font-size:13px;color:var(--text-muted);">
+            <li>Read <code>fetch()</code> / XHR response bodies</li>
+            <li>Read cross-origin cookies or localStorage</li>
+            <li>Access cross-origin iframe DOM</li>
+            <li>Read WebSocket message data (not enforced by WS spec)</li>
+          </ul>
+        </div>
+        <div>
+          <p style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:6px;">SOP Allows (cross-origin…)</p>
+          <ul style="font-size:13px;color:var(--text-muted);">
+            <li>Embed images, scripts, CSS, iframes</li>
+            <li>Form submissions (no JS read-back)</li>
+            <li>WebSocket connections (cookies sent!)</li>
+            <li>postMessage to any window (by design)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture diagram -->
+  <div class="panel" style="margin-bottom:32px;">
+    <div class="panel-header">
+      <span class="panel-title-icon">&#127760;</span>
+      <span class="panel-title">Lab Architecture — Two Origins</span>
+    </div>
+    <div class="panel-body">
+      <p>Every lab uses two Docker containers on two ports — you can observe the cross-origin boundary live.</p>
+      <div class="terminal" style="margin-top:12px;">
+<span class="hl-muted">┌─────────────────────────────────┐    ┌──────────────────────────────────┐</span>
+<span class="hl-muted">│</span>  <span class="hl-green">VICTIM  http://localhost:3000</span>    <span class="hl-muted">│    │</span>  <span class="hl-red">ATTACKER  http://localhost:3001</span>   <span class="hl-muted">│</span>
+<span class="hl-muted">│─────────────────────────────────│    │──────────────────────────────────│</span>
+<span class="hl-muted">│</span>  Node/Express + cookie session  <span class="hl-muted">│    │</span>  Static attacker pages            <span class="hl-muted">│</span>
+<span class="hl-muted">│</span>  Stores user data &amp; flags        <span class="hl-muted">│    │</span>  Exploit PoC HTML/JS              <span class="hl-muted">│</span>
+<span class="hl-muted">│</span>  Authenticated API endpoints     <span class="hl-muted">│    │</span>                                  <span class="hl-muted">│</span>
+<span class="hl-muted">└────────────────┬────────────────┘    └───────────────────────────────────┘</span>
+                 <span class="hl-muted">│</span>                                    <span class="hl-blue">↑</span>
+                 <span class="hl-muted">│</span>  <span class="hl-yellow">CORS headers / postMessage /</span>        <span class="hl-blue">│</span>
+                 <span class="hl-muted">│</span>  <span class="hl-yellow">WebSocket / window.opener</span>           <span class="hl-blue">│</span>
+                 <span class="hl-muted">└────────────────────────────────────┘</span>
+<span class="hl-muted">
+  Browser enforces SOP — server-side CORS headers &amp; client-side JS decide what leaks.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lab Cards -->
+  <div class="section-title">Labs</div>
+
+  <div class="module-grid">
+
+    <!-- X1 -->
+    <div class="lab-card" data-lab="x1">
+      <div class="lab-card-header">
+        <div class="lab-card-id">X1</div>
+        <div class="lab-card-badges">
+          <span class="badge badge-beginner">Beginner</span>
+          <span class="badge badge-solved" id="solved-x1" style="display:none;">&#10003; Solved</span>
+        </div>
+      </div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">CORS Origin Reflection</div>
+        <div class="lab-card-desc">
+          The API blindly reflects the request's <code>Origin</code> header back as
+          <code>Access-Control-Allow-Origin</code> — leaking authenticated data to any origin.
+        </div>
+        <div class="concept-tags">
+          <span class="tag">CORS</span>
+          <span class="tag">credentials</span>
+          <span class="tag">ACAO reflection</span>
+        </div>
+        <div class="lab-card-ratings">
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Interview</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star">★</span><span class="star empty">☆</span>
+            </span>
+          </div>
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Hunt</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star empty">☆</span><span class="star empty">☆</span>
+            </span>
+          </div>
+        </div>
+        <div class="lab-card-actions">
+          <a href="x1.html" class="btn btn-primary btn-sm">Start Lab</a>
+          <a href="x1_interview.html" class="btn btn-ghost btn-sm">Interview Prep</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- X2 -->
+    <div class="lab-card" data-lab="x2">
+      <div class="lab-card-header">
+        <div class="lab-card-id">X2</div>
+        <div class="lab-card-badges">
+          <span class="badge badge-intermediate">Intermediate</span>
+          <span class="badge badge-solved" id="solved-x2" style="display:none;">&#10003; Solved</span>
+        </div>
+      </div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">CORS Null Origin &amp; Weak Allowlist</div>
+        <div class="lab-card-desc">
+          The CORS allowlist trusts <code>null</code> origin and uses substring matching —
+          both bypassed trivially via sandboxed iframes and crafted hostnames.
+        </div>
+        <div class="concept-tags">
+          <span class="tag">null origin</span>
+          <span class="tag">allowlist bypass</span>
+          <span class="tag">sandboxed iframe</span>
+        </div>
+        <div class="lab-card-ratings">
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Interview</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star">★</span><span class="star empty">☆</span>
+            </span>
+          </div>
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Hunt</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star">★</span><span class="star empty">☆</span>
+            </span>
+          </div>
+        </div>
+        <div class="lab-card-actions">
+          <a href="x2.html" class="btn btn-primary btn-sm">Start Lab</a>
+          <a href="x2_interview.html" class="btn btn-ghost btn-sm">Interview Prep</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- X3 -->
+    <div class="lab-card" data-lab="x3">
+      <div class="lab-card-header">
+        <div class="lab-card-id">X3</div>
+        <div class="lab-card-badges">
+          <span class="badge badge-intermediate">Intermediate</span>
+          <span class="badge badge-solved" id="solved-x3" style="display:none;">&#10003; Solved</span>
+        </div>
+      </div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">postMessage Missing Origin Check</div>
+        <div class="lab-card-desc">
+          A widget listens for <code>postMessage</code> from any window without verifying
+          <code>event.origin</code>, leaking secrets to cross-origin callers.
+        </div>
+        <div class="concept-tags">
+          <span class="tag">postMessage</span>
+          <span class="tag">event.origin</span>
+          <span class="tag">DOM-XSS bridge</span>
+        </div>
+        <div class="lab-card-ratings">
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Interview</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star empty">☆</span><span class="star empty">☆</span>
+            </span>
+          </div>
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Hunt</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star">★</span><span class="star empty">☆</span>
+            </span>
+          </div>
+        </div>
+        <div class="lab-card-actions">
+          <a href="x3.html" class="btn btn-primary btn-sm">Start Lab</a>
+          <a href="x3_interview.html" class="btn btn-ghost btn-sm">Interview Prep</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- X4 -->
+    <div class="lab-card" data-lab="x4">
+      <div class="lab-card-header">
+        <div class="lab-card-id">X4</div>
+        <div class="lab-card-badges">
+          <span class="badge badge-beginner">Beginner</span>
+          <span class="badge badge-solved" id="solved-x4" style="display:none;">&#10003; Solved</span>
+        </div>
+      </div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Reverse Tabnabbing</div>
+        <div class="lab-card-desc">
+          Links open with <code>target="_blank"</code> and no <code>rel="noopener"</code>,
+          giving the opened page the ability to redirect the victim tab via
+          <code>window.opener.location</code>.
+        </div>
+        <div class="concept-tags">
+          <span class="tag">tabnabbing</span>
+          <span class="tag">window.opener</span>
+          <span class="tag">rel=noopener</span>
+        </div>
+        <div class="lab-card-ratings">
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Interview</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star empty">☆</span><span class="star empty">☆</span>
+            </span>
+          </div>
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Hunt</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star empty">☆</span>
+              <span class="star empty">☆</span><span class="star empty">☆</span>
+            </span>
+          </div>
+        </div>
+        <div class="lab-card-actions">
+          <a href="x4.html" class="btn btn-primary btn-sm">Start Lab</a>
+          <a href="x4_interview.html" class="btn btn-ghost btn-sm">Interview Prep</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- X5 -->
+    <div class="lab-card" data-lab="x5">
+      <div class="lab-card-header">
+        <div class="lab-card-id">X5</div>
+        <div class="lab-card-badges">
+          <span class="badge badge-advanced">Advanced</span>
+          <span class="badge badge-solved" id="solved-x5" style="display:none;">&#10003; Solved</span>
+        </div>
+      </div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Cross-Site WebSocket Hijacking</div>
+        <div class="lab-card-desc">
+          The WebSocket server sends the flag to every connection without validating the
+          <code>Origin</code> header. Cookies are sent automatically — any page can connect
+          as the victim.
+        </div>
+        <div class="concept-tags">
+          <span class="tag">CSWSH</span>
+          <span class="tag">WebSocket</span>
+          <span class="tag">cookie hijack</span>
+        </div>
+        <div class="lab-card-ratings">
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Interview</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star">★</span><span class="star">★</span>
+            </span>
+          </div>
+          <div class="rating-row">
+            <span style="font-size:11px;color:var(--text-subtle);">Hunt</span>
+            <span class="stars">
+              <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+              <span class="star">★</span><span class="star empty">☆</span>
+            </span>
+          </div>
+        </div>
+        <div class="lab-card-actions">
+          <a href="x5.html" class="btn btn-primary btn-sm">Start Lab</a>
+          <a href="x5_interview.html" class="btn btn-ghost btn-sm">Interview Prep</a>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /module-grid -->
+
+</div><!-- /page -->
+
+<script src="assets/main.js"></script>
+<script>
+  // Update hero stat
+  document.addEventListener('DOMContentLoaded', () => {
+    const heroSolved = document.getElementById('hero-solved');
+    if (heroSolved) heroSolved.textContent = HuntLabs.solvedCount();
+
+    // Show solved badges on cards
+    ['x1','x2','x3','x4','x5'].forEach(id => {
+      if (HuntLabs.isSolved(id)) {
+        const badge = document.getElementById('solved-' + id);
+        if (badge) badge.style.display = '';
+      }
+    });
+  });
+</script>
+</body>
+</html>

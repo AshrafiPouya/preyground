@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Lab 10 — Capstone: The Hunt | Hunt Labs{% endblock %}
+{% block nav_extra %}<a href="{{ url_for('lab10.interview') }}">Interview Prep</a>{% endblock %}
+
+{% block content %}
+<div class="page lab-page">
+  {% if solved %}<div class="solved-banner"><div class="solved-banner-icon">🏆</div><div><div class="solved-banner-text">Hunt Complete — You Are Now a Hunter</div><div class="solved-banner-sub">You mapped an unknown app, found the one injectable input, chained bypass + blind extraction, and retrieved the flag.</div></div></div>{% endif %}
+
+  <div class="lab-header">
+    <div class="lab-header-info">
+      <div class="lab-header-meta">
+        <span class="badge badge-expert">Expert</span>
+        <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">LAB 10 — CAPSTONE</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+        <span class="rating-stars" style="font-size:0.7rem"><span class="star-filled">★★★★★</span> Hunt</span>
+      </div>
+      <h1>The Hunt</h1>
+      <p class="lab-header-desc">A realistic multi-endpoint app. Four inputs — only one is injectable, and it has a filter. No technique is named. Map, probe, bypass, extract. This is what real bug hunting looks like.</p>
+    </div>
+    <div class="lab-header-actions">
+      <a href="{{ url_for('lab10.interview') }}" class="btn btn-ghost btn-sm">Interview Prep</a>
+      <form method="post" action="{{ url_for('lab10.reset') }}" onsubmit="return confirm('Reset?')">
+        <button type="submit" class="btn btn-danger btn-sm">Reset</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="lab-body">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- App surface -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Application Surface — 4 Endpoints</span></div>
+        <div class="panel-body">
+          <div class="capstone-grid">
+
+            <!-- Articles Search -->
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;">
+              <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">📰 ARTICLES SEARCH</div>
+              <form method="get" action="{{ url_for('lab10.articles') }}" style="display:flex;gap:6px;">
+                <input type="text" name="q" placeholder="Search..." style="flex:1;font-size:0.8rem;">
+                <button type="submit" class="btn btn-ghost btn-sm">Go</button>
+              </form>
+            </div>
+
+            <!-- Ticket Lookup -->
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;">
+              <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">🎫 TICKET LOOKUP</div>
+              <form method="get" action="{{ url_for('lab10.ticket') }}" style="display:flex;gap:6px;">
+                <input type="text" name="id" placeholder="Ticket ID..." style="flex:1;font-size:0.8rem;">
+                <button type="submit" class="btn btn-ghost btn-sm">Go</button>
+              </form>
+            </div>
+
+            <!-- User Search -->
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;">
+              <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">👥 USER SEARCH</div>
+              <form method="get" action="{{ url_for('lab10.users') }}" style="display:flex;gap:6px;">
+                <input type="text" name="username" placeholder="Username..." style="flex:1;font-size:0.8rem;">
+                <button type="submit" class="btn btn-ghost btn-sm">Go</button>
+              </form>
+            </div>
+
+            <!-- Product Lookup -->
+            <div style="background:var(--surface2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:14px;border-style:dashed;">
+              <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">🛒 PRODUCT LOOKUP <span style="color:var(--yellow);font-size:0.65rem;">(filtered)</span></div>
+              <form method="get" action="{{ url_for('lab10.product') }}" style="display:flex;gap:6px;">
+                <input type="text" name="id" placeholder="Product ID..." style="flex:1;font-size:0.8rem;">
+                <button type="submit" class="btn btn-ghost btn-sm">Go</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      {% if results %}
+      <div class="panel" id="results">
+        <div class="panel-header">
+          <span class="panel-title">Response — /{{ results.endpoint }}</span>
+          {% if results.get('query') %}<span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim)">query logged</span>{% endif %}
+        </div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          {% if results.get('error') %}
+          <div class="alert alert-error"><strong>Error:</strong> <code>{{ results.error }}</code></div>
+          {% endif %}
+
+          {% if results.get('query') %}
+          <div class="terminal"><span class="prompt">db&gt; </span><span class="query">{{ results.query | e }}</span></div>
+          {% endif %}
+
+          {% set rows = results.get('rows') or ([results.row] if results.get('row') else []) %}
+          {% if rows %}
+          <table class="results-table">
+            <thead>
+              <tr>{% for k in rows[0].keys() %}<th>{{ k }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>{% for v in row.values() %}<td>{{ v }}</td>{% endfor %}</tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% elif not results.get('error') %}
+          <p class="text-muted" style="font-size:0.85rem;">No results returned.</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Methodology (no spoilers)</span></div>
+        <div class="panel-body" style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;">
+          <div><span style="color:var(--accent)">1.</span> Map → test each endpoint for anomalies</div>
+          <div><span style="color:var(--accent)">2.</span> Detect → which input breaks or behaves differently?</div>
+          <div><span style="color:var(--accent)">3.</span> Fingerprint → what DB engine?</div>
+          <div><span style="color:var(--accent)">4.</span> Bypass → what's blocking you, and how do you evade it?</div>
+          <div><span style="color:var(--accent)">5.</span> Extract → enumerate schema, locate the flag, pull it out</div>
+          <div style="margin-top:4px;color:var(--text-dim)">You know all these techniques. Chain them.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+        <div class="panel-body">
+          {% if flag_error %}<div class="alert alert-error" data-dismiss="4000">Incorrect flag. Keep hunting.</div>{% endif %}
+          {% if solved %}<div class="alert alert-success">Hunt complete!</div>
+          {% else %}
+          <form method="post" action="{{ url_for('lab10.submit_flag') }}" class="flag-form">
+            <input class="flag-input" type="text" name="flag" placeholder="HUNT{...}" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-full">Submit</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Hints (minimal)</span><span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim)">{{ hints_revealed | length }}/3</span></div>
+        <div class="panel-body">
+          <div class="hints-list">
+            {% for i in range(1, 4) %}
+            <div class="hint-item">
+              <div class="hint-header">Hint {{ i }}{% if i not in hints_revealed %}<form method="post" action="{{ url_for('lab10.hint', n=i) }}" style="margin:0"><button type="submit" class="btn btn-ghost btn-sm">Reveal</button></form>{% endif %}</div>
+              {% if i in hints_revealed %}<div class="hint-content">{{ hints[i-1] | safe }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Payload Log</span></div>
+        <div class="panel-body">
+          <div class="payload-log">
+            {% for entry in payload_log[:10] %}<div class="log-entry" title="Click to copy"><div class="log-payload">{{ entry.payload | e }}</div><div class="log-context">{{ entry.context }}</div></div>{% endfor %}
+            {% if not payload_log %}<div class="log-empty">Start probing endpoints.</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

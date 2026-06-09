@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 15 — Mutation XSS | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab15" class="active">Lab 15</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 15 Solved — mXSS conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 15</span><span class="badge badge-advanced">Advanced</span></div>
+    <h1>Mutation XSS (mXSS)</h1>
+    <p class="lab-header-desc">The naive sanitizer strips obvious XSS vectors, but the browser's HTML parser <em>mutates</em> certain edge-case markup after sanitization — producing executable code from seemingly safe input.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128221;</span><span class="panel-title">Rich Text Editor (with sanitizer)</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Enter HTML content. It passes through a sanitizer before rendering:</p>
+      <textarea id="rich-input" class="flag-input" style="width:100%;height:100px;margin-bottom:10px;" placeholder="Enter HTML…"></textarea>
+      <button class="btn btn-primary" onclick="renderContent()">Render (sanitized)</button>
+      <div style="margin-top:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Sanitizer output (innerHTML used for rendering):</div>
+        <div id="sanitized-preview" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:12px;word-break:break-all;"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Rendered output (what the browser actually produces):</div>
+        <div id="render-output" style="padding:16px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);min-height:40px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Code — naive sanitizer</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// Naive sanitizer: removes script tags and common event handlers</span>
+<span class="hl-kw">function</span> sanitize(html) {
+  <span class="hl-kw">return</span> html
+    .replace(/<span class="hl-red">&lt;script[\s\S]*?&gt;[\s\S]*?&lt;\/script&gt;</span>/gi, '')
+    .replace(/<span class="hl-red">on\w+=["'][^"']*["']/gi</span>, '')
+    .replace(/<span class="hl-red">on\w+=\S+/gi</span>, '');
+}
+
+<span class="hl-subtle">// Sanitize, then write into innerHTML → mutation can occur here</span>
+<span class="hl-kw">const</span> safe = sanitize(userInput);
+output.<span class="hl-red">innerHTML</span> = safe;   <span class="hl-subtle">// browser re-parses → mXSS</span></code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;"><strong>mXSS vectors to research:</strong> <code>&lt;svg&gt;&lt;style&gt;&lt;/style&gt;&lt;img src=x onerror=...&gt;&lt;/svg&gt;</code>, <code>&lt;noscript&gt;</code> contexts, mis-nested tags, <code>&lt;table&gt;</code> parser quirks, namespace switching.</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>Sanitizer ≠ safe render</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">The sanitizer looks at one representation; the browser's parser may produce a different tree when it re-parses the sanitized output via innerHTML.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>SVG namespace switching</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">In SVG context, the parser switches to SVG namespace rules. A <code>&lt;style&gt;</code> inside SVG followed by HTML content can cause the parser to reinterpret the following tags differently.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>Classic mXSS vector</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Try: <code>&lt;svg&gt;&lt;style&gt;&lt;/style&gt;&lt;img src=x onerror=captureFlag()&gt;&lt;/svg&gt;</code>. The sanitizer may not strip the onerror because it's inside SVG context during its parse, but when re-parsed by the browser it fires.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab15';
+const EXPECTED_FLAG = 'HUNT{the_parser_mutated_my_markup}';
+
+function captureFlag() {
+  fetch('/api/capture/lab15', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+// Naive sanitizer — intentionally bypassable via mXSS
+function sanitize(html) {
+  return html
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/on\w+=["'][^"']*["']/gi, '')
+    .replace(/on\w+=\S+/gi, '');
+}
+
+function renderContent() {
+  const input = document.getElementById('rich-input').value;
+  const sanitized = sanitize(input);
+  document.getElementById('sanitized-preview').textContent = sanitized;
+  // VULNERABLE: assign to innerHTML — browser re-parses and may mutate
+  document.getElementById('render-output').innerHTML = sanitized;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+});
+</script>
+</body>
+</html>

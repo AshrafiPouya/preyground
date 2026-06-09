@@ -1,0 +1,8 @@
+{
+  "name": "hunt-labs-xss-bot",
+  "version": "1.0.0",
+  "main": "visit.js",
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}

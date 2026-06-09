@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X4 — Reverse Tabnabbing | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x4.html" class="active">X4</a>
+      <a href="x4_interview.html">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<!-- ── Solved Banner ─────────────────────────────────────── -->
+<div class="solved-banner" id="solved-banner">
+  <span class="confetti">&#127881;</span>
+  Lab X4 Solved — Reverse tabnabbing exploit complete!
+  <span class="confetti">&#127881;</span>
+</div>
+
+<!-- ── Lab Page ──────────────────────────────────────────── -->
+<div class="lab-page">
+
+  <!-- ════════ MAIN COLUMN ════════ -->
+  <div class="lab-main">
+
+    <!-- Lab Header -->
+    <div class="lab-header">
+      <div class="lab-header-badges">
+        <span class="badge badge-lab">LAB X4</span>
+        <span class="badge badge-beginner">Beginner</span>
+      </div>
+      <h1>Reverse Tabnabbing</h1>
+      <p class="lab-header-desc">
+        The community profile page renders user-submitted links with <code>target="_blank"</code>
+        but without <code>rel="noopener"</code>. When a user clicks the link, the opened page
+        gains a reference to the original tab via <code>window.opener</code> and can silently
+        redirect it to a phishing clone.
+      </p>
+      <div class="lab-header-actions">
+        <a href="x4_interview.html" class="btn btn-ghost btn-sm">&#128218; Interview Prep</a>
+        <a href="index.html" class="btn btn-ghost btn-sm">&#8592; Hub</a>
+      </div>
+      <div class="lab-header-meta">
+        <span>&#128363; Interview relevance:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star empty">☆</span><span class="star empty">☆</span>
+          </span>
+        </span>
+        <span>&#128269; Hunt frequency:
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star empty">☆</span>
+            <span class="star empty">☆</span><span class="star empty">☆</span>
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Community Profile Links -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128100;</span>
+        <span class="panel-title">Community Profile Links</span>
+      </div>
+      <div class="panel-body">
+        <p>
+          Users can submit their personal website URL to display on their profile.
+          The link is rendered with <code>target="_blank"</code> — no <code>rel="noopener"</code>.
+        </p>
+
+        <!-- Submit form -->
+        <form id="link-form" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;" action="/api/x4/submit-link" method="POST">
+          <input
+            type="url"
+            name="url"
+            id="link-url-input"
+            placeholder="https://yoursite.example.com"
+            style="flex:1;min-width:200px;background:#010409;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 12px;outline:none;"
+            required
+          />
+          <button type="submit" class="btn btn-primary">Submit URL</button>
+          <button type="button" class="btn btn-ghost" id="btn-reset-link">Reset</button>
+        </form>
+
+        <!-- Rendered link display -->
+        <div id="link-display" style="
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: 16px;
+          min-height: 60px;
+        ">
+          <div style="font-size:12px;color:var(--text-subtle);font-family:var(--mono);margin-bottom:10px;">
+            Rendered profile link (vulnerable HTML):
+          </div>
+          <div id="profile-link-area" style="font-size:14px;color:var(--text-muted);font-style:italic;">
+            No link submitted yet.
+          </div>
+        </div>
+
+        <div id="link-alert" class="alert" style="margin-top:10px;"></div>
+
+        <div style="margin-top:16px;padding:12px;background:rgba(248,81,73,0.06);border:1px solid rgba(248,81,73,0.2);border-radius:var(--radius);font-size:13px;color:var(--text-muted);">
+          <strong style="color:var(--red);">WARNING (intentional vulnerability):</strong>
+          This link is rendered without <code>rel="noopener"</code>. Clicking it will open
+          the URL in a new tab and give that tab access to <code>window.opener</code>,
+          which references this tab.
+        </div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128270;</span>
+        <span class="panel-title">How Reverse Tabnabbing Works</span>
+      </div>
+      <div class="panel-body">
+        <div class="terminal" style="margin-bottom:14px;">
+<span class="hl-muted"> Step 1 — Victim clicks the link</span>
+   Victim tab (localhost:3000/x4.html) opens attacker page in a new tab
+
+<span class="hl-muted"> Step 2 — New tab checks window.opener</span>
+   <span class="hl-red">window.opener</span> !== null   <span class="hl-subtle">← reference to the victim tab</span>
+   The Same-Origin Policy prevents reading the opener's DOM,
+   but allows <em>setting</em> its location.
+
+<span class="hl-muted"> Step 3 — Silent redirect</span>
+   <span class="hl-red">window.opener.location</span> = <span class="hl-orange">'http://localhost:3001/x4_phish.html'</span>
+   Victim switches focus back to the original tab — sees the phishing clone.
+
+<span class="hl-muted"> Step 4 — Credential harvest</span>
+   Phishing page looks identical, asks victim to "re-authenticate".
+        </div>
+        <p>
+          The fix is trivial: add <code>rel="noopener noreferrer"</code> to every
+          <code>target="_blank"</code> link. Modern browsers also apply this by default
+          for cross-origin links, but you cannot rely on browser version.
+        </p>
+      </div>
+    </div>
+
+    <!-- Vulnerable Source -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128220;</span>
+        <span class="panel-title">Vulnerable HTML — Template Rendering</span>
+      </div>
+      <div class="panel-body">
+        <pre><code><span class="hl-subtle">&lt;!-- server-rendered template — routes/x4.js --&gt;</span>
+
+<span class="hl-subtle">&lt;!-- BUG: target="_blank" with no rel="noopener" --&gt;</span>
+&lt;<span class="hl-blue">a</span> <span class="hl-green">href</span>=<span class="hl-orange">"{{ userUrl }}"</span>
+   <span class="hl-green">target</span>=<span class="hl-orange">"_blank"</span>&gt;           <span class="hl-red">&lt;!-- no rel="noopener" --&gt;</span>
+  Visit my site
+&lt;/<span class="hl-blue">a</span>&gt;
+
+<span class="hl-subtle">&lt;!-- SAFE version --&gt;</span>
+&lt;<span class="hl-blue">a</span> <span class="hl-green">href</span>=<span class="hl-orange">"{{ userUrl }}"</span>
+   <span class="hl-green">target</span>=<span class="hl-orange">"_blank"</span>
+   <span class="hl-green">rel</span>=<span class="hl-orange">"noopener noreferrer"</span>&gt;  <span class="hl-green">&lt;!-- opener reference nulled --&gt;</span>
+  Visit my site
+&lt;/<span class="hl-blue">a</span>&gt;</code></pre>
+      </div>
+    </div>
+
+    <!-- Objective -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127919;</span>
+        <span class="panel-title">Objective</span>
+      </div>
+      <div class="panel-body">
+        <ul class="objective-list">
+          <li>
+            <span class="obj-num">1</span>
+            <span>Submit the URL <code>http://localhost:3001/x4.html</code> as your "website URL".</span>
+          </li>
+          <li>
+            <span class="obj-num">2</span>
+            <span>Click the rendered profile link. The attacker page opens in a new tab and immediately executes <code>window.opener.location = 'http://localhost:3001/x4_phish.html'</code>, redirecting <em>this</em> tab.</span>
+          </li>
+          <li>
+            <span class="obj-num">3</span>
+            <span>The flag is displayed on the phishing clone. Copy it and submit below.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /lab-main -->
+
+  <!-- ════════ SIDEBAR ════════ -->
+  <div class="lab-sidebar">
+
+    <!-- Flag Submission -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#127937;</span>
+        <span class="panel-title">Submit Flag</span>
+      </div>
+      <div class="panel-body">
+        <form class="flag-form" id="flag-form">
+          <input
+            type="text"
+            class="flag-input"
+            id="flag-input"
+            placeholder="HUNT{...}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="btn btn-primary btn-full">Submit Flag</button>
+        </form>
+        <div id="flag-alert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- Hints -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128161;</span>
+        <span class="panel-title">Hints</span>
+      </div>
+      <div class="panel-body">
+        <div class="hints-list">
+
+          <div class="hint-item" data-hint="1">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#1</span>
+                <span>window.opener exists</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              When you open a link in a new tab with <code>target="_blank"</code>, the new
+              page may have a reference back to the original tab. What is that JS property called?
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="2">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#2</span>
+                <span>Redirect the opener</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              If <code>window.opener</code> is not null, the opened page can set
+              <code>window.opener.location</code> to redirect the original tab without
+              the victim noticing.
+            </div>
+          </div>
+
+          <div class="hint-item" data-hint="3">
+            <div class="hint-header">
+              <div class="hint-header-left">
+                <span class="hint-number">#3</span>
+                <span>Full exploit flow</span>
+              </div>
+              <button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button>
+            </div>
+            <div class="hint-content">
+              Submit the link <code>http://localhost:3001/x4.html</code> as your "website".
+              On load, the attacker page does:
+              <code>if (window.opener) window.opener.location = 'http://localhost:3001/x4_phish.html'</code>.
+              Click the link in the victim profile — the attacker page opens and immediately
+              redirects the victim tab to the phishing clone.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Payload Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-icon">&#128196;</span>
+        <span class="panel-title">Payload Log</span>
+        <button
+          class="btn btn-ghost btn-sm"
+          style="margin-left:auto;"
+          onclick="localStorage.removeItem('huntlabs_xo_log_x4'); HuntLabs.renderPayloadLog('x4');"
+        >Clear</button>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div id="payload-log">
+          <div class="log-empty">No payloads logged yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /lab-sidebar -->
+
+</div><!-- /lab-page -->
+
+<script src="assets/main.js"></script>
+<script>
+  const LAB_ID        = 'x4';
+  const EXPECTED_FLAG = 'HUNT{noopener_would_have_saved_you}';
+
+  function renderLink(url) {
+    const area = document.getElementById('profile-link-area');
+    if (!url) {
+      area.innerHTML = '<em style="color:var(--text-subtle);">No link submitted yet.</em>';
+      return;
+    }
+    // Intentionally NO rel="noopener" — the vulnerability
+    const safe = HuntLabs.escHtml(url);
+    area.innerHTML = `<a href="${safe}" target="_blank" style="color:var(--blue);">Visit my site</a>
+      <span style="color:var(--text-subtle);font-size:12px;font-family:var(--mono);margin-left:8px;">(target="_blank" — no rel="noopener")</span>`;
+  }
+
+  async function loadCurrentLink() {
+    try {
+      const res = await fetch('/api/x4/link');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) renderLink(data.url);
+      }
+    } catch {}
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+    loadCurrentLink();
+
+    document.getElementById('link-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url     = document.getElementById('link-url-input').value.trim();
+      const alertEl = document.getElementById('link-alert');
+
+      if (!url) return;
+
+      HuntLabs.logPayload(LAB_ID, url, 'Link submitted');
+      HuntLabs.renderPayloadLog(LAB_ID);
+
+      try {
+        const res = await fetch('/api/x4/submit-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ url }),
+        });
+        if (res.ok) {
+          renderLink(url);
+          HuntLabs.showAlert(alertEl, 'success', '&#10003; Link saved! Click it above to trigger the exploit.');
+        } else {
+          HuntLabs.showAlert(alertEl, 'error', '&#10007; Server error saving link.');
+        }
+      } catch {
+        // Fall back — render locally even if server is down
+        renderLink(url);
+        HuntLabs.showAlert(alertEl, 'info', '&#9432; Link rendered locally (server may be offline).');
+      }
+    });
+
+    document.getElementById('btn-reset-link').addEventListener('click', async () => {
+      const alertEl = document.getElementById('link-alert');
+      try {
+        await fetch('/api/x4/submit-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ url: '' }),
+        });
+      } catch {}
+      document.getElementById('link-url-input').value = '';
+      document.getElementById('profile-link-area').innerHTML = '<em style="color:var(--text-subtle);">No link submitted yet.</em>';
+      HuntLabs.showAlert(alertEl, 'info', 'Link cleared.');
+    });
+  });
+</script>
+</body>
+</html>

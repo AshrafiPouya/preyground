@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Lab 3 Interview Prep — UNION-Based | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab3.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 3</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-intermediate">Intermediate</span>
+    <span class="rating-stars"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Hunt</span>
+  </div>
+  <h1>UNION-Based SQL Injection</h1>
+  <p class="subtitle">Expect to whiteboard the column-counting workflow. Know ORDER BY vs NULL probing cold.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"UNION-based SQLi appends a second SELECT statement to the original query, pulling data from other tables into the reflected results. It requires matching column count and compatible data types. The workflow is: count columns → find reflected columns → UNION SELECT the target data."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">How do you determine the number of columns?</label><div class="qa-answer">Two methods: (1) <strong>ORDER BY</strong> — inject <code>ORDER BY 1--</code>, then <code>ORDER BY 2--</code>, incrementing until you get an error. The last successful number is the column count. (2) <strong>UNION SELECT NULL</strong> — add NULLs one at a time: <code>UNION SELECT NULL--</code>, <code>UNION SELECT NULL,NULL--</code> until no error. NULL is type-compatible with everything. ORDER BY is often cleaner and less disruptive to the query structure.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">How do you handle data-type mismatches?</label><div class="qa-answer">If a column is numeric, putting a string there causes a type error. Use <code>NULL</code> in numeric columns and put your extracted string in a text-compatible column. Replace NULLs one at a time: <code>UNION SELECT 'test',NULL,NULL--</code> — if 'test' appears, column 1 is a string column. Rotate until you find a usable reflected column.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">How do you find which columns are reflected in the page output?</label><div class="qa-answer">Replace each NULL with a unique distinguishable string: <code>UNION SELECT 'col1marker',NULL,NULL--</code>. Look for 'col1marker' in the HTML response. Repeat for each position. Once you know which positions are reflected, put your real payload (subquery) there.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q4"><label class="qa-question" for="q4">How do you dump multiple rows when only one row appears?</label><div class="qa-answer">Use <code>GROUP_CONCAT()</code> (MySQL) or <code>STRING_AGG()</code> (PostgreSQL) to concatenate all values from a column into a single string: <code>UNION SELECT GROUP_CONCAT(username,':',password SEPARATOR '|'),NULL FROM users--</code>. SQLite uses <code>GROUP_CONCAT(col, ',')</code>.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>Parameterized queries prevent UNION injection entirely — the UNION keyword can never be injected because the query structure is fixed. Additionally, apply least-privilege database accounts so even a successful injection can't read sensitive tables.</p>
+    <div class="oneliner'>
+      -- Without parameterization, this is exploitable:<br>
+      SELECT title, author FROM books WHERE title LIKE '%' + @input + '%'<br><br>
+      -- With parameterization, @input is always data, never code:
+    </div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Gotchas & Follow-Ups</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q5"><label class="qa-question" for="q5">ORDER BY vs UNION SELECT NULL — which do you prefer and why?</label><div class="qa-answer">ORDER BY is cleaner for initial column counting — it doesn't change the returned data, just triggers errors at the boundary. UNION SELECT NULL is more flexible once you've confirmed the number and need to probe types. In practice: ORDER BY to count, then NULL probing to find usable columns.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q6"><label class="qa-question" for="q6">What's the difference between UNION-based and stacked queries?</label><div class="qa-answer">UNION extends a single SELECT — it appends a second SELECT and merges result sets. Stacked queries (using <code>;</code>) run an entirely separate SQL statement. Stacked queries require the DB driver to support multi-statement execution (MySQL's mysqli vs PDO handle this differently). UNION is more universally exploitable for data extraction.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">' ORDER BY 1--</div>
+    <div class="oneliner">' UNION SELECT NULL,NULL,NULL--</div>
+    <div class="oneliner">%' UNION SELECT table_name,NULL,NULL FROM information_schema.tables--</div>
+    <div class="oneliner">%' UNION SELECT GROUP_CONCAT(username,0x3a,password),NULL FROM users--</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ Confusing UNION-based with stacked queries — they are fundamentally different mechanics.</div>
+    <div class="red-flag-item">❌ Forgetting type compatibility — saying "just put your payload in any column" without addressing numeric columns.</div>
+    <div class="red-flag-item">❌ Only knowing the column-counting theory without being able to describe how to find reflected columns.</div>
+  </div>
+</div>
+{% endblock %}

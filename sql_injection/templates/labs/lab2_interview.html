@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Lab 2 Interview Prep — Auth Bypass | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab2.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 2</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+    <span class="badge badge-beginner">Beginner</span>
+    <span class="rating-stars"><span class="star-filled">★★★★★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★</span><span class="star-empty">★★★</span> Hunt</span>
+  </div>
+  <h1>Authentication Bypass via SQL Injection</h1>
+  <p class="subtitle">The single most-cited SQLi example in interviews. Know it cold.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"An auth bypass uses SQL injection to make the login query's WHERE clause always true — or to comment out the password check entirely — so you authenticate without valid credentials. The classic example is injecting <code>' OR '1'='1</code> into the username or password field, turning the conditional into a tautology."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">Walk me through how ' OR '1'='1 works.</label><div class="qa-answer">The original query is: <code>SELECT * FROM users WHERE username = '[INPUT]' AND password = '[PASS]'</code>. If you inject <code>' OR '1'='1</code> as the password, the query becomes: <code>... AND password = '' OR '1'='1'</code>. Since <code>OR '1'='1'</code> is always true, the WHERE clause evaluates to true for every row, and the query returns all users. The application typically takes the first returned row and logs you in as that user.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">How does admin'-- work?</label><div class="qa-answer">Injecting <code>admin'--</code> as the username causes the query to become: <code>SELECT * FROM users WHERE username = 'admin'--' AND password = '...'</code>. The <code>--</code> is a SQL comment delimiter — everything after it is ignored. The password check is eliminated entirely. As long as an 'admin' row exists, you get back that row and log in as admin, regardless of password.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">What's the difference between targeting username vs password?</label><div class="qa-answer">Targeting the username lets you specify <em>which</em> user to bypass — e.g. <code>admin'--</code> logs you in specifically as admin. Targeting only the password field with a tautology (e.g. <code>' OR '1'='1</code>) may log you in as whoever is in the first row returned — often not admin. Precision matters in real assessments.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>Use parameterized queries. The query structure should never change based on user input. Additionally: use constant-time comparison for password checking (to prevent timing attacks), and store passwords with bcrypt/argon2 — though note that hashing protects stored passwords, not a query that's injectable before the hash comparison runs.</p>
+    <div class="oneliner">
+      # WRONG<br>
+      query = f"SELECT * FROM users WHERE username='{u}' AND password='{p}'"<br><br>
+      # RIGHT<br>
+      cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (u, p))
+    </div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Gotchas & Follow-Ups</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q4"><label class="qa-question" for="q4">What if only the username field is injectable but not the password?</label><div class="qa-answer">You can still bypass auth by injecting <code>admin'--</code> into the username, which comments out the password check entirely. You don't need both fields to be injectable — one is enough to eliminate the other.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q5"><label class="qa-question" for="q5">Why is logging in as "any user" worse than it sounds?</label><div class="qa-answer">The <code>' OR 1=1--</code> tautology returns all rows, and the app usually takes the first one. In many schemas, the first user is the admin or a privileged account (lowest ID). Even if not, logging in as any user gives you session access, potentially exposing PII, payment info, and secondary escalation paths.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q6"><label class="qa-question" for="q6">Does bcrypt/argon2 hashing prevent auth bypass?</label><div class="qa-answer">No. Hashing protects stored passwords from being readable if the database is dumped. But auth bypass happens upstream — the injectable query returns a row (or all rows) before the hash comparison ever occurs. The app sees "got a row back = authenticated." Hashing is irrelevant to this attack.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">admin'--</div>
+    <div class="oneliner">' OR 1=1--</div>
+    <div class="oneliner">' OR '1'='1</div>
+    <div class="oneliner">admin'/*</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ "Bcrypt/hashing stops SQL injection auth bypass" — it doesn't; they solve different problems.</div>
+    <div class="red-flag-item">❌ "This only works on old apps" — still found on internal tools, IoT panels, legacy admin portals.</div>
+    <div class="red-flag-item">❌ "Just use HTTPS" — transport encryption has no bearing on SQL injection in the application layer.</div>
+  </div>
+</div>
+{% endblock %}

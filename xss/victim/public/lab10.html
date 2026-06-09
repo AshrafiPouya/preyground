@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 10 — DOM XSS via window.name | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab10" class="active">Lab 10</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 10 Solved — window.name source conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 10</span><span class="badge badge-intermediate">Intermediate</span></div>
+    <h1>DOM XSS — document.write + window.name</h1>
+    <p class="lab-header-desc"><code>window.name</code> persists across cross-origin navigations. This page reads it and passes it to <code>document.write()</code> — letting the attacker set the source from their own origin.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#127891;</span><span class="panel-title">Welcome Banner</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);">This page greets you based on where you came from (window.name).</p>
+      <div id="banner" style="margin-top:12px;padding:16px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);min-height:50px;">
+        Loading…
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// Reads window.name set by the referrer page</span>
+<span class="hl-kw">const</span> source = window.name || <span class="hl-orange">'a friend'</span>;
+<span class="hl-subtle">// BUG: document.write with attacker-controlled source</span>
+document.<span class="hl-red">write</span>(<span class="hl-orange">'Welcome from '</span> + source);</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;"><strong>Key insight:</strong> <code>window.name</code> survives cross-origin navigations. A page at <code>http://localhost:3001</code> can set <code>window.name = payload</code>, then navigate to this page — the name arrives here.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#127919;</span><span class="panel-title">Exploit Flow</span></div>
+    <div class="panel-body">
+      <div class="terminal">
+<span class="hl-red">ATTACKER PAGE</span> sets <span class="hl-orange">window.name = payload</span>
+    ↓ then navigates to victim
+<span class="hl-green">VICTIM PAGE</span> reads <span class="hl-orange">window.name</span> → <span class="hl-red">document.write()</span>
+    ↓ payload executes
+<span class="hl-blue">captureFlag()</span> runs
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;">Visit the attacker exploit page at <a href="http://localhost:3001/lab10.html" target="_blank">http://localhost:3001/lab10.html</a> to trigger this.</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>window.name persists</span></div><button class="hint btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content"><code>window.name</code> is one of the few properties that survive cross-origin navigation. If page A sets it and navigates to page B (different origin), page B inherits the value.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>document.write is a sink</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content"><code>document.write()</code> parses and renders HTML. If it writes attacker content, that becomes executable HTML.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>Use the attacker exploit page</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">The exploit page at <a href="http://localhost:3001/lab10.html" target="_blank">http://localhost:3001/lab10.html</a> sets <code>window.name</code> to a payload and redirects here. Open it and observe.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab10';
+const EXPECTED_FLAG = 'HUNT{referrer_and_name_are_sources_too}';
+
+function captureFlag() {
+  fetch('/api/capture/lab10', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+  // VULNERABLE: window.name → document.write
+  const source = window.name || 'a friend';
+  document.getElementById('banner').innerHTML = ''; // clear loading
+  document.open('text/html', 'replace');
+  // We simulate document.write in the div instead of full page to keep layout intact
+  // The vulnerability is real — window.name is the source, innerHTML/write is the sink
+  document.getElementById('banner').innerHTML = 'Welcome from ' + source;
+});
+</script>
+</body>
+</html>

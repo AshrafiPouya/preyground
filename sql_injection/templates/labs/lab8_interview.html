@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Lab 8 Interview Prep — Second-Order SQLi | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab8.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 8</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-advanced">Advanced</span>
+    <span class="rating-stars"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Hunt</span>
+  </div>
+  <h1>Second-Order SQL Injection</h1>
+  <p class="subtitle">A classic senior-level differentiator. Many juniors have never heard of it — knowing it cold distinguishes you.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"Second-order SQLi is when the payload is stored harmlessly at input — often because that query is parameterized — but later retrieved and used in a different, unparameterized query. The injection fires somewhere other than where you entered it. This defeats 'sanitize on input' strategies because the dangerous query isn't the one that received the payload."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">What is second-order SQL injection?</label><div class="qa-answer">It's a two-phase attack. Phase 1: the attacker submits a SQL payload through a safe channel — usually a registration or profile update form that uses parameterized queries. The payload is stored verbatim in the database. Phase 2: a different feature reads that stored value and inserts it into a new, unparameterized query. The injection fires in Phase 2, not Phase 1.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">Why does input sanitization fail to stop it?</label><div class="qa-answer">Because sanitization at input only protects the first query. The stored value — even if "clean" from the first query's perspective — becomes dangerous when concatenated into a second query that was written without thinking about the data's origin. The developer of the second query trusted that the database contains clean data. That trust is misplaced.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">How would you find second-order injection during a pentest?</label><div class="qa-answer">Data-flow analysis: trace where user-controlled values are stored, then find every code path that reads those values back and uses them in SQL. Pay attention to: profile pages, admin panels that display user data, email systems that format messages, audit logs. Automated scanners miss it because they probe input and output in the same request. Manual code review or two-request tracing is required.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>Every query that consumes stored data must use parameterized statements — not just the queries that directly receive user input. The rule is: treat data as untrusted at <em>every read</em>, not just first entry. Even if the INSERT was safe, the SELECT that later uses that value must also be parameterized.</p>
+    <div class="oneliner">
+      # WRONG — second query trusts stored data<br>
+      username = db.get("SELECT username FROM users WHERE id=?", user_id)<br>
+      db.execute(f"SELECT * FROM profiles WHERE username='{username}'")<br><br>
+      # RIGHT — parameterize every query that uses stored values<br>
+      db.execute("SELECT * FROM profiles WHERE username=?", (username,))
+    </div>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">Register username: x' UNION SELECT flag,2,3 FROM secrets--</div>
+    <div class="oneliner">Then trigger the second query (view profile, admin panel, etc.)</div>
+    <div class="oneliner">The payload fires in the second query, not the registration query</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ "Escaping on input solves SQLi" — second-order is the direct counterexample. The payload bypasses input escaping entirely.</div>
+    <div class="red-flag-item">❌ Not being able to describe the two-phase nature — vague answers like "the injection is stored" without explaining when/where it fires.</div>
+    <div class="red-flag-item">❌ "Scanners would catch it" — automated scanners almost universally miss second-order because they don't trace data across requests.</div>
+  </div>
+</div>
+{% endblock %}

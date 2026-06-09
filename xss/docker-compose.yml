@@ -1,0 +1,22 @@
+services:
+  victim:
+    build: ./victim
+    ports: ["127.0.0.1:3000:3000"]
+    networks: [xssnet]
+    depends_on: [attacker]
+
+  attacker:
+    build: ./attacker
+    ports: ["127.0.0.1:3001:3001"]
+    networks: [xssnet]
+
+  bot:
+    build: ./bot
+    networks: [xssnet]
+    environment:
+      - VICTIM_URL=http://victim:3000
+      - ATTACKER_URL=http://attacker:3001
+    depends_on: [victim, attacker]
+
+networks:
+  xssnet: { driver: bridge }

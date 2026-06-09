@@ -1,0 +1,12 @@
+{
+    "require": {
+        "twig/twig": "^3.0",
+        "smarty/smarty": "^4.0"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "audit": {
+            "abandoned": "ignore"
+        }
+    }
+}

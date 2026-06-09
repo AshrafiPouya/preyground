@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exploit Console — Client-Side & Cross-Origin</title>
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; padding: 24px; margin: 0; }
+    h1 { color: #3fb950; font-size: 1.2rem; margin-bottom: 16px; }
+    h2 { color: #58a6ff; font-size: 1rem; margin: 16px 0 8px; }
+    .terminal { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin: 12px 0; white-space: pre-wrap; font-size: 0.85rem; min-height: 60px; }
+    .status { color: #d29922; }
+    .success { color: #3fb950; }
+    .error { color: #f85149; }
+    button { background: #238636; color: #e6edf3; border: 1px solid #3fb950; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-family: inherit; margin: 4px 2px; }
+    button:hover { background: #2ea043; }
+    input[type=text] { background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 8px; font-family: inherit; width: 100%; margin: 4px 0 8px; }
+    label { color: #7d8590; font-size: 0.85rem; }
+    a { color: #58a6ff; }
+    .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; margin-right: 6px; }
+    .attacker-badge { background: rgba(248,81,73,0.15); border: 1px solid #f85149; color: #f85149; }
+    .victim-badge { background: rgba(88,166,255,0.15); border: 1px solid #58a6ff; color: #58a6ff; }
+
+    .origin-bar {
+      background: #161b22;
+      border: 1px solid #f85149;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      font-size: 0.85rem;
+    }
+    .exploit-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .exploit-list li {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .exploit-list li:hover {
+      border-color: #58a6ff;
+    }
+    .exploit-num {
+      color: #f85149;
+      font-size: 1.1rem;
+      font-weight: bold;
+      min-width: 32px;
+    }
+    .exploit-info a {
+      font-size: 1rem;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .exploit-info a:hover {
+      text-decoration: underline;
+    }
+    .exploit-desc {
+      color: #7d8590;
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+    .hint-box {
+      background: rgba(210,153,34,0.08);
+      border: 1px solid #d29922;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-top: 24px;
+      font-size: 0.85rem;
+      color: #d29922;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #21262d;
+      margin: 24px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="origin-bar">
+    <span class="badge attacker-badge">ATTACKER ORIGIN</span>
+    <strong>http://localhost:3001</strong>
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <span class="badge victim-badge">VICTIM ORIGIN</span>
+    <strong>http://localhost:3000</strong>
+  </div>
+
+  <h1>Exploit Console — Client-Side &amp; Cross-Origin</h1>
+
+  <p style="color:#7d8590; font-size:0.9rem; margin-bottom:8px;">
+    This is the <span style="color:#f85149;">attacker origin</span>. From here you launch cross-origin attacks against the victim at
+    <a href="http://localhost:3000" target="_blank">http://localhost:3000</a>.
+    Each exploit page demonstrates a distinct vulnerability class and shows the raw exploit code so you can understand exactly what is happening and why it works.
+  </p>
+
+  <hr class="divider">
+
+  <h2>Available Exploits</h2>
+
+  <ul class="exploit-list">
+    <li>
+      <span class="exploit-num">X1</span>
+      <div class="exploit-info">
+        <a href="x1.html">CORS Origin Reflection</a>
+        <div class="exploit-desc">
+          The victim server reflects any Origin value back in Access-Control-Allow-Origin and pairs it with
+          Access-Control-Allow-Credentials: true — allowing this attacker page to read authenticated API responses cross-origin.
+        </div>
+      </div>
+    </li>
+    <li>
+      <span class="exploit-num">X2</span>
+      <div class="exploit-info">
+        <a href="x2.html">CORS Null Origin</a>
+        <div class="exploit-desc">
+          The victim trusts Origin: null. A sandboxed iframe on this page sends requests with no real origin, bypassing the
+          allowlist. Also demonstrates an origin-regex bypass using a lookalike domain.
+        </div>
+      </div>
+    </li>
+    <li>
+      <span class="exploit-num">X3</span>
+      <div class="exploit-info">
+        <a href="x3.html">postMessage Missing Origin Check</a>
+        <div class="exploit-desc">
+          The victim's postMessage handler responds to any sender without checking event.origin. This page opens the victim
+          in a new window, sends a crafted message, and captures the reply — including the flag.
+        </div>
+      </div>
+    </li>
+    <li>
+      <span class="exploit-num">X4</span>
+      <div class="exploit-info">
+        <a href="x4.html">Tabnabbing (Reverse Tab Hijack)</a>
+        <div class="exploit-desc">
+          When a victim clicks a link that opens this page without rel=noopener, this page gains a reference to the
+          opener tab via window.opener and redirects it to a phishing clone of the victim app.
+        </div>
+      </div>
+    </li>
+    <li>
+      <span class="exploit-num">X5</span>
+      <div class="exploit-info">
+        <a href="x5.html">Cross-Site WebSocket Hijacking (CSWSH)</a>
+        <div class="exploit-desc">
+          WebSocket connections carry cookies automatically, bypassing the Same-Origin Policy read restriction.
+          This page opens a WebSocket to the victim server using the victim's session cookie and reads the flag.
+        </div>
+      </div>
+    </li>
+  </ul>
+
+  <div class="hint-box">
+    <strong>Before you start:</strong> Open the victim app at
+    <a href="http://localhost:3000" target="_blank">http://localhost:3000</a> in another tab and log in first.
+    The exploits depend on your browser holding an active session cookie for localhost:3000.
+    Then return here and launch the exploit for each lab.
+  </div>
+
+</body>
+</html>

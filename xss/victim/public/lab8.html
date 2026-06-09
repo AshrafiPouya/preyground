@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 8 — DOM XSS via hash | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab8" class="active">Lab 8</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 8 Solved — DOM XSS via hash conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 8</span><span class="badge badge-intermediate">Intermediate</span></div>
+    <h1>DOM XSS — location.hash → innerHTML</h1>
+    <p class="lab-header-desc">Entirely client-side. The source is <code>location.hash</code> and the sink is <code>innerHTML</code>. The server never sees your payload — it's after the <code>#</code>.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128196;</span><span class="panel-title">Tab Viewer</span></div>
+    <div class="panel-body">
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">The page reads <code>location.hash</code> to render a tab. Try the links below:</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <a href="#home" class="btn btn-ghost btn-sm">Home</a>
+        <a href="#about" class="btn btn-ghost btn-sm">About</a>
+        <a href="#contact" class="btn btn-ghost btn-sm">Contact</a>
+      </div>
+      <div id="tab-content" style="padding:16px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);min-height:60px;">
+        Click a tab above — or craft your own <code>#</code> fragment.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// Runs on every hash change</span>
+window.addEventListener(<span class="hl-orange">'hashchange'</span>, render);
+<span class="hl-kw">function</span> render() {
+  <span class="hl-kw">const</span> tab = decodeURIComponent(location.hash.slice(1));
+  <span class="hl-subtle">// BUG: hash value flows into innerHTML — server never sees the #fragment</span>
+  document.getElementById(<span class="hl-orange">'tab-content'</span>).<span class="hl-red">innerHTML</span> = tab;
+}</code></pre>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>The # is not sent to server</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Everything after <code>#</code> in a URL is the fragment — browsers never send it to the server. A WAF can't see it. Only JavaScript reads it.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>The sink is innerHTML</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">The hash value flows into <code>innerHTML</code>. Choose a vector that executes via innerHTML — not <code>&lt;script&gt;</code> (it won't run), but <code>onerror</code> or SVG will.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>Craft the URL</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Navigate to <code>/lab8#&lt;img src=x onerror=captureFlag()&gt;</code>. The hash will be read, decoded, and written into the div via innerHTML.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab8';
+const EXPECTED_FLAG = 'HUNT{dom_source_to_sink}';
+
+function captureFlag() {
+  fetch('/api/capture/lab8', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      const el = document.getElementById('flag-input');
+      if (el) el.value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+function render() {
+  const tab = decodeURIComponent(location.hash.slice(1));
+  // VULNERABLE: hash → innerHTML, no sanitization
+  document.getElementById('tab-content').innerHTML = tab || 'Click a tab above.';
+}
+
+window.addEventListener('hashchange', render);
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+  render();
+});
+</script>
+</body>
+</html>

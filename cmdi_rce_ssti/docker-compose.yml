@@ -1,0 +1,13 @@
+services:
+  web:
+    build: ./web
+    ports:
+      - "127.0.0.1:8081:80"
+    environment:
+      - FLAGS_DIR=/flags
+    restart: unless-stopped
+    networks: [labnet]
+
+networks:
+  labnet:
+    driver: bridge

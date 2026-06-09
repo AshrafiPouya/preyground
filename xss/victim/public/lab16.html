@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 16 — React dangerouslySetInnerHTML | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+  <!-- React CDN (development build for the lab) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab16" class="active">Lab 16</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 16 Solved — React escape hatch conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 16</span><span class="badge badge-intermediate">Intermediate</span></div>
+    <h1>React — dangerouslySetInnerHTML</h1>
+    <p class="lab-header-desc">React auto-escapes <code>{value}</code> interpolation, but <code>dangerouslySetInnerHTML</code> opts out entirely. This component passes attacker-controlled bio text straight through.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#8857;</span><span class="panel-title">React User Profile Component</span></div>
+    <div class="panel-body">
+      <div id="react-root"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable React Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// ProfileCard component — VULNERABLE</span>
+<span class="hl-kw">function</span> ProfileCard({ bio }) {
+  <span class="hl-kw">return</span> (
+    &lt;div className="profile"&gt;
+      &lt;h3&gt;User Profile&lt;/h3&gt;
+      <span class="hl-subtle">{/* Safe: React auto-escapes {bio} */}</span>
+      &lt;p&gt;{bio}&lt;/p&gt;
+
+      <span class="hl-subtle">{/* BUG: dangerouslySetInnerHTML bypasses React's escaping */}</span>
+      &lt;div <span class="hl-red">dangerouslySetInnerHTML={{ __html: bio }}</span> /&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;"><strong>Key:</strong> <code>{bio}</code> is safe — React HTML-encodes it. <code>dangerouslySetInnerHTML</code> skips this and injects raw HTML.</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>React is safe by default</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">React escapes all JSX interpolated values by default. To get XSS, find where the developer turned off that protection.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>dangerouslySetInnerHTML</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">The "dangerously" prefix is React's warning. This prop sets raw innerHTML — any HTML you put in the bio becomes executable.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>The payload</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Enter <code>&lt;img src=x onerror=captureFlag()&gt;</code> in the bio field. Notice the safe <code>{bio}</code> paragraph shows it as text — but <code>dangerouslySetInnerHTML</code> executes it.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab16';
+const EXPECTED_FLAG = 'HUNT{react_escape_hatch}';
+
+function captureFlag() {
+  fetch('/api/capture/lab16', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+});
+</script>
+
+<script type="text/babel">
+const { useState } = React;
+
+function ProfileCard({ bio }) {
+  return (
+    <div style={{padding:'16px',background:'var(--surface-2)',borderRadius:'6px',border:'1px solid var(--border)'}}>
+      <h3 style={{marginBottom:'12px',color:'var(--text)'}}>User Profile</h3>
+
+      <div style={{marginBottom:'12px'}}>
+        <p style={{fontSize:'12px',color:'var(--text-muted)',marginBottom:'4px'}}>&#10003; Safe rendering via React interpolation (auto-escaped):</p>
+        <div style={{padding:'8px',background:'var(--surface)',borderRadius:'4px',border:'1px solid var(--border-muted)',color:'var(--text)'}}>
+          {bio}
+        </div>
+      </div>
+
+      <div>
+        <p style={{fontSize:'12px',color:'var(--red)',marginBottom:'4px'}}>&#10007; Unsafe rendering via dangerouslySetInnerHTML:</p>
+        <div
+          style={{padding:'8px',background:'var(--surface)',borderRadius:'4px',border:'1px solid var(--red)',minHeight:'32px'}}
+          dangerouslySetInnerHTML={{ __html: bio }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [bio, setBio] = useState('');
+  const [submitted, setSubmitted] = useState('');
+
+  return (
+    <div>
+      <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
+        <input
+          className="flag-input"
+          style={{flex:1}}
+          placeholder="Enter bio HTML..."
+          value={bio}
+          onChange={e => setBio(e.target.value)}
+        />
+        <button
+          className="btn btn-primary"
+          onClick={() => setSubmitted(bio)}
+        >
+          Set Bio
+        </button>
+      </div>
+      {submitted && <ProfileCard bio={submitted} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('react-root')).render(<App />);
+</script>
+</body>
+</html>

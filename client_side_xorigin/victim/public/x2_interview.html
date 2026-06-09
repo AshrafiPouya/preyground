@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X2 Interview Prep — CORS Null &amp; Regex | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x2.html">X2 Lab</a>
+      <a href="x2_interview.html" class="active">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<div class="interview-page">
+
+  <div class="interview-back">
+    <a href="x2.html" class="btn btn-ghost btn-sm">&#8592; Back to Lab X2</a>
+    <a href="index.html" class="btn btn-ghost btn-sm">&#8962; Hub</a>
+  </div>
+
+  <div class="interview-header">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <span class="badge badge-lab">LAB X2</span>
+      <span class="badge badge-intermediate">Intermediate</span>
+    </div>
+    <h1>Interview Prep — CORS Null Origin &amp; Weak Allowlist</h1>
+    <p>Deep-dive questions on null origin sources, allowlist bypass techniques, and regex pitfalls in CORS configuration.</p>
+  </div>
+
+  <!-- 30-second explanation -->
+  <div class="interview-section">
+    <h2>30-Second Explanation</h2>
+    <div class="thirty-sec">
+      Two classic CORS allowlist implementation bugs: (1) trusting the literal string
+      <code>"null"</code> as a valid origin, and (2) using substring matching instead of
+      exact equality. The <code>null</code> origin is sent by browsers for sandboxed iframes,
+      data URIs, and certain redirects — any attacker page can force it. Substring matching
+      (<code>origin.includes('trusted.com')</code>) can be bypassed by registering a domain
+      like <code>eviltrsted.com.attacker.io</code> or prepending the trusted string. The
+      correct approach is an explicit array of exact origins compared with strict equality.
+    </div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="interview-section">
+    <h2>Q &amp; A</h2>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">When does a browser send <code>Origin: null</code>?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <ul style="color:var(--text-muted);font-size:14px;line-height:1.9;">
+          <li><strong>Sandboxed iframes</strong> (<code>&lt;iframe sandbox="allow-scripts"&gt;</code>) — the most common exploitation vector</li>
+          <li><strong>Data URIs</strong> (<code>data:text/html,&lt;script&gt;...&lt;/script&gt;</code>)</li>
+          <li><strong>Cross-origin redirects</strong> in some browsers</li>
+          <li><strong>File protocol</strong> (<code>file://</code> pages)</li>
+          <li><strong>Opaque origins</strong> — browser's way of saying "origin intentionally withheld"</li>
+        </ul>
+        An attacker can reliably trigger <code>Origin: null</code> by wrapping their exploit
+        in a sandboxed iframe with <code>srcdoc</code>.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How does substring matching break a CORS allowlist?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        If the check is <code>origin.includes('trusted.example.com')</code>, an attacker
+        can bypass it with a hostname that contains the trusted string as a substring:
+        <ul style="color:var(--text-muted);font-size:14px;line-height:1.9;margin-top:8px;">
+          <li><code>https://trusted.example.com.evil.io</code> — trusted string is a subdomain prefix</li>
+          <li><code>https://evil.io/trusted.example.com</code> — in a path (some naive parsers)</li>
+          <li><code>https://notrusted.example.com</code> — contains the substring</li>
+        </ul>
+        Same risk applies to regex without anchors: <code>/trusted\.example\.com/</code>
+        matches <code>evil-trusted.example.com</code>. Always anchor: <code>/^https:\/\/trusted\.example\.com$/</code>.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">Why is it wrong to trust <code>null</code> origin in production?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        The <code>null</code> origin represents an "opaque origin" — it does not identify
+        a specific web page. Trusting it grants cross-origin read access to every sandboxed
+        iframe on the internet. A legitimate use case for <code>null</code> in production
+        is essentially non-existent: if you need cross-origin access, use a real, identifiable
+        origin. Any code that sets <code>ACAO: null</code> should be treated as a critical
+        vulnerability.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How do you safely implement a CORS allowlist for multiple origins?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <pre><code>const ALLOWED = new Set([
+  'https://app.example.com',
+  'https://admin.example.com',
+]);
+
+// In middleware:
+const origin = req.headers.origin;
+if (origin && ALLOWED.has(origin)) {        // exact Set lookup
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
+}
+// If origin not in set: omit CORS headers entirely</code></pre>
+        Key points: use a <code>Set</code> for O(1) exact lookup, never use
+        <code>includes()</code> or unanchored regex, always add <code>Vary: Origin</code>,
+        and never fall back to reflecting an unknown origin.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How would you test for a null origin bypass on a bug bounty target?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        In Burp Suite Repeater, manually set <code>Origin: null</code> on an authenticated
+        request. If the server returns <code>Access-Control-Allow-Origin: null</code> and
+        <code>Access-Control-Allow-Credentials: true</code>, it is exploitable.
+        Confirm with a PoC: create an HTML file with a sandboxed iframe whose
+        <code>srcdoc</code> fetches the endpoint and <code>postMessage</code>s the result
+        back to the parent page.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bypass one-liners -->
+  <div class="interview-section">
+    <h2>Bypass One-Liners</h2>
+
+    <div class="oneliner">
+      &lt;iframe sandbox="allow-scripts" srcdoc="&lt;script&gt;fetch('https://victim.com/api',{credentials:'include'}).then(r=&gt;r.json()).then(d=&gt;parent.postMessage(JSON.stringify(d),'*'))&lt;/script&gt;"&gt;&lt;/iframe&gt;
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Sandboxed iframe forces <code>Origin: null</code> — bypasses <code>origin === 'null'</code> check.</p>
+
+    <div class="oneliner">
+      // Burp test — triggers null origin check:
+      Origin: null
+      // Watch for: Access-Control-Allow-Origin: null + ACAC: true
+    </div>
+  </div>
+
+  <!-- Developer Fix -->
+  <div class="interview-section">
+    <h2>Developer Fix</h2>
+    <div class="fix-box">
+      <p style="color:var(--green);font-weight:600;margin-bottom:8px;">Strict Set-based allowlist — no substring, no null</p>
+      <pre><code>const ALLOWED = new Set([
+  'https://app.example.com',
+  'https://admin.example.com',
+  // Never add 'null' here
+]);
+
+function corsMiddleware(req, res, next) {
+  const origin = req.headers.origin;
+  // Reject null, undefined, or any non-whitelisted origin
+  if (typeof origin === 'string' && ALLOWED.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+  next();
+}</code></pre>
+    </div>
+  </div>
+
+  <!-- Red Flags -->
+  <div class="interview-section">
+    <h2>Red Flags in Code Review</h2>
+
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>origin === 'null'</code> or <code>ALLOWED.includes('null')</code> — null origin trusted</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>origin.includes('trusted.com')</code> — substring matching bypassed by crafted hostnames</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Unanchored regex: <code>/trusted\.com/</code> — must be <code>/^https:\/\/trusted\.com$/</code></span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Falling back to wildcard when origin is not in allowlist: <code>res.setHeader('ACAO', '*')</code></span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Missing <code>Vary: Origin</code> — shared caches may serve wrong ACAO value to other origins</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/main.js"></script>
+<script>
+  document.querySelectorAll('.qa-question').forEach(q => {
+    q.addEventListener('click', () => {
+      q.closest('.qa-item').classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>

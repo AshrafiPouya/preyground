@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X4 Interview Prep — Reverse Tabnabbing | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x4.html">X4 Lab</a>
+      <a href="x4_interview.html" class="active">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<div class="interview-page">
+
+  <div class="interview-back">
+    <a href="x4.html" class="btn btn-ghost btn-sm">&#8592; Back to Lab X4</a>
+    <a href="index.html" class="btn btn-ghost btn-sm">&#8962; Hub</a>
+  </div>
+
+  <div class="interview-header">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <span class="badge badge-lab">LAB X4</span>
+      <span class="badge badge-beginner">Beginner</span>
+    </div>
+    <h1>Interview Prep — Reverse Tabnabbing</h1>
+    <p>Interview questions on window.opener, reverse tabnabbing attacks, rel=noopener, and related phishing vectors.</p>
+  </div>
+
+  <!-- 30-second explanation -->
+  <div class="interview-section">
+    <h2>30-Second Explanation</h2>
+    <div class="thirty-sec">
+      When a page opens a new tab with <code>target="_blank"</code>, the opened page receives
+      a reference to the original tab via <code>window.opener</code>. Cross-origin, the
+      opened page cannot <em>read</em> the opener's DOM — but it <em>can</em> set
+      <code>window.opener.location</code> to redirect the original tab to any URL.
+      This is <em>reverse tabnabbing</em>: the victim clicks a link, switches back to the
+      original tab, and finds it now showing a phishing page. The fix is trivially
+      <code>rel="noopener noreferrer"</code> on every <code>target="_blank"</code> link,
+      which nulls out the <code>window.opener</code> reference in the new tab.
+    </div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="interview-section">
+    <h2>Q &amp; A</h2>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What is <code>window.opener</code>?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <code>window.opener</code> is a reference to the window object that opened the
+        current window — either via <code>window.open()</code> or a link with
+        <code>target="_blank"</code>. When both windows share the same origin, the opener
+        reference grants full DOM access. Cross-origin, the Same-Origin Policy restricts
+        most properties — but the <code>location</code> property is writeable even
+        cross-origin, allowing the opened page to redirect the opener tab.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">Explain the reverse tabnabbing attack step by step.</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <ol style="color:var(--text-muted);font-size:14px;line-height:1.9;">
+          <li>Victim browses to a trusted site that renders user-submitted links with <code>target="_blank"</code>.</li>
+          <li>An attacker submits a link pointing to their malicious page.</li>
+          <li>Victim clicks the link — attacker page opens in a new tab. Victim switches to the new tab.</li>
+          <li>Attacker page JS executes: <code>if (window.opener) window.opener.location = 'https://phishing.example.com'</code></li>
+          <li>Original tab silently redirects to the phishing clone while the victim is looking at the new tab.</li>
+          <li>Victim switches back — sees the phishing login page, believes they were logged out, enters credentials.</li>
+        </ol>
+        The attack works because redirecting <code>opener.location</code> is allowed cross-origin by spec.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What does <code>rel="noopener"</code> do, and why should you also add <code>noreferrer</code>?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <ul style="color:var(--text-muted);font-size:14px;line-height:1.9;">
+          <li><strong><code>noopener</code></strong>: Instructs the browser to set <code>window.opener = null</code>
+          in the opened page, removing the reference to the originating tab. This is the direct fix for tabnabbing.</li>
+          <li><strong><code>noreferrer</code></strong>: Prevents the browser from sending the <code>Referer</code>
+          header, hiding the originating URL from the destination server. Older browsers that don't support
+          <code>noopener</code> will also omit the opener when <code>noreferrer</code> is set.</li>
+        </ul>
+        Best practice: always use <code>rel="noopener noreferrer"</code> together to cover both concerns
+        and legacy browsers.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">Do modern browsers protect against this automatically?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        Partially. Modern Chromium-based browsers (Chrome 88+) and Firefox implicitly apply
+        <code>rel=noopener</code> to cross-origin <code>target="_blank"</code> links even
+        without the attribute, following the HTML spec update. However:
+        <ul style="color:var(--text-muted);font-size:14px;line-height:1.9;margin-top:6px;">
+          <li>Older browsers and Safari have inconsistent behaviour.</li>
+          <li>Same-origin links are not implicitly protected.</li>
+          <li>Relying on browser defaults is fragile — explicit <code>rel</code> attributes are canonical and correct.</li>
+        </ul>
+        Always add <code>rel="noopener noreferrer"</code> explicitly; don't rely on browser version.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How would you scan a large codebase for missing noopener?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <pre style="margin-bottom:10px;"><code># Find target="_blank" links missing rel="noopener"
+grep -rn 'target="_blank"' . | grep -v 'noopener'
+
+# Or with ripgrep (faster):
+rg 'target="_blank"' --type html | grep -v noopener</code></pre>
+        Also check JS that constructs anchor elements: <code>a.target = '_blank'</code> without
+        subsequently setting <code>a.rel = 'noopener noreferrer'</code>. Linting tools like
+        eslint-plugin-react have rules for this (<code>react/jsx-no-target-blank</code>).
+        CSP does not mitigate this — it's a structural fix only.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bypass one-liners -->
+  <div class="interview-section">
+    <h2>Attack One-Liners</h2>
+
+    <div class="oneliner">
+      // attacker page opened via target="_blank" link with no rel="noopener":
+      if (window.opener) window.opener.location = 'https://phishing.attacker.com/login';
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Runs on page load — silently redirects the victim's original tab.</p>
+
+    <div class="oneliner">
+      // More stealthy — delay to give victim time to switch tabs:
+      setTimeout(() =&gt; { if (window.opener) window.opener.location = 'https://phishing.example.com'; }, 2000);
+    </div>
+  </div>
+
+  <!-- Developer Fix -->
+  <div class="interview-section">
+    <h2>Developer Fix</h2>
+    <div class="fix-box">
+      <p style="color:var(--green);font-weight:600;margin-bottom:8px;">Always add rel="noopener noreferrer" to target="_blank" links</p>
+      <pre><code>&lt;!-- Vulnerable --&gt;
+&lt;a href="{{ userUrl }}" target="_blank"&gt;Visit&lt;/a&gt;
+
+&lt;!-- Fixed --&gt;
+&lt;a href="{{ userUrl }}" target="_blank" rel="noopener noreferrer"&gt;Visit&lt;/a&gt;
+
+&lt;!-- Dynamically created links in JS --&gt;
+const a = document.createElement('a');
+a.href   = url;
+a.target = '_blank';
+a.rel    = 'noopener noreferrer';   // required
+document.body.appendChild(a);
+a.click();</code></pre>
+    </div>
+  </div>
+
+  <!-- Red Flags -->
+  <div class="interview-section">
+    <h2>Red Flags in Code Review</h2>
+
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>target="_blank"</code> on any link without <code>rel="noopener"</code></span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>window.open(url)</code> in JS without storing the return value and immediately clearing opener: <code>child.opener = null</code></span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>User-controlled URLs rendered as clickable links with <code>target="_blank"</code> (profile pages, comments, link-sharing features)</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Template engines that auto-linkify URLs without appending <code>rel="noopener noreferrer"</code></span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Relying on browser auto-noopener behaviour — implicit, not guaranteed across all browsers and same-origin links</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/main.js"></script>
+<script>
+  document.querySelectorAll('.qa-question').forEach(q => {
+    q.addEventListener('click', () => {
+      q.closest('.qa-item').classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>

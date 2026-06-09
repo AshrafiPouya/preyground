@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 11 — DOM XSS via postMessage | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab11" class="active">Lab 11</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 11 Solved — postMessage XSS conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 11</span><span class="badge badge-advanced">Advanced</span></div>
+    <h1>DOM XSS — postMessage → innerHTML</h1>
+    <p class="lab-header-desc">A <code>message</code> event listener passes <code>event.data</code> directly into <code>innerHTML</code> without checking <code>event.origin</code>. Any window can send a malicious payload.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128233;</span><span class="panel-title">Live Notification Widget</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">This widget receives real-time updates via <code>postMessage</code>:</p>
+      <div id="notification-area" style="padding:16px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);min-height:60px;">
+        <span style="color:var(--text-muted);">Waiting for messages…</span>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-ghost btn-sm" onclick="testMessage()">Send Test Message (safe)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// BUG: no origin check, unsafe innerHTML sink</span>
+window.addEventListener(<span class="hl-orange">'message'</span>, e => {
+  <span class="hl-subtle">// Should check: if (e.origin !== 'http://localhost:3000') return;</span>
+  document.getElementById(<span class="hl-orange">'notification-area'</span>).<span class="hl-red">innerHTML</span> = e.data;
+});</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;"><strong>Fix:</strong> Always validate <code>event.origin</code> against a known-good allowlist, AND sanitize <code>event.data</code> before inserting into the DOM.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#127919;</span><span class="panel-title">Exploit Flow</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);">From the attacker origin, open or iframe this page, then call:</p>
+      <pre><code>victimWindow.postMessage(<span class="hl-orange">'&lt;img src=x onerror=captureFlag()&gt;'</span>, <span class="hl-orange">'*'</span>);</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:8px;">Visit <a href="http://localhost:3001/lab11.html" target="_blank">http://localhost:3001/lab11.html</a> for the exploit page.</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>postMessage is cross-origin</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content"><code>postMessage</code> allows any window to send a message to any other window. The receiver should validate <code>event.origin</code> — this one doesn't.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>Message data → innerHTML</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">The message data flows directly into <code>innerHTML</code>. Use an event-handler vector like <code>&lt;img src=x onerror=...&gt;</code>.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>Use the exploit page</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Open the attacker exploit at <a href="http://localhost:3001/lab11.html" target="_blank">localhost:3001/lab11.html</a> which iframes this page and postMessages the payload.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab11';
+const EXPECTED_FLAG = 'HUNT{postmessage_into_innerhtml}';
+
+function captureFlag() {
+  fetch('/api/capture/lab11', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+// VULNERABLE: no origin check, innerHTML sink
+window.addEventListener('message', e => {
+  document.getElementById('notification-area').innerHTML = e.data;
+});
+
+function testMessage() {
+  window.postMessage('<div style="color:var(--green);">&#10003; Test notification received safely</div>', '*');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+});
+</script>
+</body>
+</html>

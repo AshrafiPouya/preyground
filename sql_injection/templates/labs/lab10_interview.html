@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Lab 10 Interview Prep — The Hunt Methodology | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab10.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 10</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-expert">Expert</span>
+    <span class="rating-stars"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★★★</span> Hunt</span>
+  </div>
+  <h1>The Hunt: Methodology & Chaining</h1>
+  <p class="subtitle">"Walk me through how you'd approach an unknown target" — the methodology question that defines senior interviews and practical exams (OSCP-style).</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"Real testing isn't 'apply technique X' — it's mapping the application, identifying every input that reaches SQL, finding the one that behaves anomalously, identifying what constraints exist, and chaining the right techniques to extract data. Methodology beats memorized payloads. The order is always: map → detect → fingerprint → bypass → extract → report."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>The Hunt Methodology (in order)</h2>
+    <ol style="display:flex;flex-direction:column;gap:12px;color:var(--text-muted);font-size:0.9rem;">
+      <li><strong style="color:var(--accent)">1. Map</strong> — enumerate every input surface: URL params, form fields, JSON body, HTTP headers (User-Agent, Referer, X-Forwarded-For), cookies. Anywhere user data touches SQL.</li>
+      <li><strong style="color:var(--accent)">2. Detect</strong> — probe each input for anomalies: errors, different response lengths, timing changes, behavioral differences. A single quote, a number where text is expected, a doubled apostrophe — any deviation signals injection.</li>
+      <li><strong style="color:var(--accent)">3. Fingerprint</strong> — identify the DBMS via version functions, error messages, and syntax. Never assume MySQL. Confirm before crafting dialect-specific payloads.</li>
+      <li><strong style="color:var(--accent)">4. Bypass</strong> — identify what's blocking you (WAF, input validation, length limits) and select the appropriate evasion. Start with the simplest bypass and escalate.</li>
+      <li><strong style="color:var(--accent)">5. Extract</strong> — enumerate schema, locate the sensitive data, pull it out using the appropriate technique (UNION, boolean blind, time-based) given what the app exposes.</li>
+      <li><strong style="color:var(--accent)">6. Report</strong> — document with a clear repro (URL, method, parameter, payload, response), impact assessment, and remediation recommendation. Findings without reproducible steps aren't findings.</li>
+    </ol>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">Walk me through your methodology for an unknown web app.</label><div class="qa-answer">Start with reconnaissance — understand the app's purpose, tech stack (headers, error pages, source), and auth model. Map every input. Passively browse to capture all parameters. Then actively probe each input with detection payloads, watching for anomalies. Prioritize inputs that look user-controlled and SQL-shaped (IDs, search terms, filters). When you find an anomaly, fingerprint the DB, identify constraints, choose the right technique, and extract methodically. Document every step.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">How do you prioritize inputs when there are many?</label><div class="qa-answer">Numeric parameters (IDs, counts) are high priority — they're often in numeric SQL context with no quoting. Search fields with visible results are good for UNION. Auth forms are good for bypass. Inputs that have a different response length for different values suggest conditional behavior. HTTP headers and cookies are often overlooked and less tested. Prioritize by: output reflection → observable behavior → numeric context → auth.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">How do you decide which SQLi technique applies?</label><div class="qa-answer">Based on what the app exposes: (1) Verbose errors → error-based. (2) Data reflected in response → UNION. (3) Boolean behavioral difference but no data → boolean blind. (4) Identical response every time → time-based. These aren't mutually exclusive — start with the least-intrusive (error detection), escalate to the most powerful (UNION), fall back to blind if needed.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q4"><label class="qa-question" for="q4">How do you avoid rabbit holes and wasted time?</label><div class="qa-answer">Time-box each input. If after 10-15 minutes of creative probing you see no anomaly, move on and return later. Keep notes on what you tested and what the baseline response is. Use tooling (Burp) to capture and diff responses rather than eyeballing them. Don't assume an input is vulnerable just because it should be — verify every claim. The goal is evidence, not intuition.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>A single missed parameterization anywhere in the codebase can be chained into full database exfiltration. Security must be consistent across every input and every query — not just the obvious ones. Defense-in-depth: parameterized queries (primary), least-privilege DB accounts (limits blast radius), WAF (speed bump), error suppression (removes information), monitoring (detects exploitation).</p>
+  </div>
+
+  <div class="interview-section">
+    <h2>Technique Decision Tree</h2>
+    <div class="terminal" style="font-size:0.75rem;line-height:1.8;">
+      <span class="query">Start: found injection point
+├── Errors visible? → Error-based (extractvalue/updatexml)
+├── Data reflected in output?
+│   └── Yes → UNION-based
+│       ├── Count columns (ORDER BY)
+│       ├── Find reflected column
+│       └── UNION SELECT flag FROM ...
+└── No output / no errors
+    ├── Response changes? → Boolean blind (SUBSTR/ASCII)
+    └── Response identical? → Time-based (SLEEP/pg_sleep)
+
+Always first: fingerprint the DB engine
+Always after: enumerate schema before extracting</span>
+    </div>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">map → detect → fingerprint → bypass → extract → report</div>
+    <div class="oneliner">Any behavioral difference = potential injection signal</div>
+    <div class="oneliner">Output type determines technique: errors=error-based, data=UNION, behavior=blind, nothing=time</div>
+    <div class="oneliner">Methodology beats memorized payloads</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ "I'd just run sqlmap" — fine as a tool, fatal as your entire methodology answer. Interviewers want to know you understand the underlying mechanics.</div>
+    <div class="red-flag-item">❌ Only knowing one technique — if UNION fails, do you know to fall back to blind? Senior testers adapt.</div>
+    <div class="red-flag-item">❌ Not mentioning documentation/reporting — findings without clear repro steps aren't actionable and show lack of professional experience.</div>
+    <div class="red-flag-item">❌ "I'd test the login form first" — login bypass is the last place modern apps are vulnerable. Numeric IDs and search endpoints are far more common today.</div>
+  </div>
+</div>
+{% endblock %}

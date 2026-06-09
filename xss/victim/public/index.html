@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hunt Labs — XSS Module</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/" class="active">Hub</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="page">
+
+  <div class="hero">
+    <div class="hero-label">// Module 03</div>
+    <h1>Cross-Site Scripting (XSS)</h1>
+    <p class="hero-sub">20 labs covering reflected, stored, DOM-based, filter bypass, framework escape hatches, CSP misconfiguration, and a full account-takeover capstone.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><span class="hero-stat-num">20</span><span class="hero-stat-label">Labs</span></div>
+      <div class="hero-stat"><span class="hero-stat-num" id="hero-solved">0</span><span class="hero-stat-label">Solved</span></div>
+      <div class="hero-stat"><span class="hero-stat-num">★★★★★</span><span class="hero-stat-label">Interview Chance</span></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:32px;">
+    <div class="panel-header"><span class="panel-title-icon">&#128161;</span><span class="panel-title">XSS — The Core Idea</span></div>
+    <div class="panel-body">
+      <p>XSS happens when an application includes attacker-controlled data in a page in a way that causes the browser to <strong>execute attacker script in a victim's session</strong>.</p>
+      <p style="margin-top:12px;">The three roots: <strong>reflected</strong> (echo from URL), <strong>stored</strong> (persisted server-side), <strong>DOM-based</strong> (client-side sink). The craft is in <strong>context</strong> (HTML body / attribute / JS string / URL / CSS) and <strong>bypass</strong> (defeating filters and CSP).</p>
+      <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div style="padding:12px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+          <p style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px;">Reflected</p>
+          <p style="font-size:12px;color:var(--text-muted);">Input from request echoed into response — delivered via crafted link.</p>
+        </div>
+        <div style="padding:12px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+          <p style="font-size:12px;font-weight:600;color:var(--orange);margin-bottom:4px;">Stored</p>
+          <p style="font-size:12px;color:var(--text-muted);">Payload persisted server-side; fires for every viewer. Generally higher impact.</p>
+        </div>
+        <div style="padding:12px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+          <p style="font-size:12px;font-weight:600;color:var(--purple);margin-bottom:4px;">DOM-based</p>
+          <p style="font-size:12px;color:var(--text-muted);">Entirely client-side: source → sink in JS. Server never sees the payload.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Part A -->
+  <div class="section-title">Part A — Reflected XSS (Labs 1–4)</div>
+  <div class="module-grid">
+
+    <div class="lab-card" data-lab="lab1">
+      <div class="lab-card-header"><div class="lab-card-id">1</div><div class="lab-card-badges"><span class="badge badge-beginner">Beginner</span><span class="badge badge-solved" id="solved-lab1" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Reflected — HTML Body</div>
+        <div class="lab-card-desc">Input echoed directly into the HTML body with no encoding.</div>
+        <div class="concept-tags"><span class="tag">Reflected</span><span class="tag">body context</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab1" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab2">
+      <div class="lab-card-header"><div class="lab-card-id">2</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab2" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Reflected — Attribute Context</div>
+        <div class="lab-card-desc">Input reflected inside an HTML attribute value — must break out first.</div>
+        <div class="concept-tags"><span class="tag">Reflected</span><span class="tag">attribute breakout</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab2" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab3">
+      <div class="lab-card-header"><div class="lab-card-id">3</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab3" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Reflected — JS String Context</div>
+        <div class="lab-card-desc">Input reflected inside a &lt;script&gt; block's string literal.</div>
+        <div class="concept-tags"><span class="tag">Reflected</span><span class="tag">JS string</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab3" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab4">
+      <div class="lab-card-header"><div class="lab-card-id">4</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab4" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Reflected — javascript: URI</div>
+        <div class="lab-card-desc">Input placed in an href attribute — exploit via the javascript: URI scheme.</div>
+        <div class="concept-tags"><span class="tag">Reflected</span><span class="tag">javascript: URI</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab4" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Part B -->
+  <div class="section-title" style="margin-top:40px;">Part B — Stored XSS (Labs 5–7)</div>
+  <div class="module-grid">
+
+    <div class="lab-card" data-lab="lab5">
+      <div class="lab-card-header"><div class="lab-card-id">5</div><div class="lab-card-badges"><span class="badge badge-beginner">Beginner</span><span class="badge badge-solved" id="solved-lab5" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Stored XSS — Comment Board</div>
+        <div class="lab-card-desc">Payload persisted and rendered to every viewer, including the admin bot.</div>
+        <div class="concept-tags"><span class="tag">Stored</span><span class="tag">admin bot</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab5" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab6">
+      <div class="lab-card-header"><div class="lab-card-id">6</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab6" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Stored via JSON/API → innerHTML</div>
+        <div class="lab-card-desc">Safe in transit; dangerous at the DOM sink. Client-side innerHTML with server-stored data.</div>
+        <div class="concept-tags"><span class="tag">Stored</span><span class="tag">innerHTML</span><span class="tag">DOM sink</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab6" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab7">
+      <div class="lab-card-header"><div class="lab-card-id">7</div><div class="lab-card-badges"><span class="badge badge-advanced">Advanced</span><span class="badge badge-solved" id="solved-lab7" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Blind / Second-Order Stored XSS</div>
+        <div class="lab-card-desc">Payload fires in an admin panel you can't see. Out-of-band exfil required.</div>
+        <div class="concept-tags"><span class="tag">Stored</span><span class="tag">blind XSS</span><span class="tag">exfil</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab7" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Part C -->
+  <div class="section-title" style="margin-top:40px;">Part C — DOM-based XSS (Labs 8–11)</div>
+  <div class="module-grid">
+
+    <div class="lab-card" data-lab="lab8">
+      <div class="lab-card-header"><div class="lab-card-id">8</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab8" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">DOM XSS — hash → innerHTML</div>
+        <div class="lab-card-desc">Source: location.hash. Sink: innerHTML. Server never sees the payload.</div>
+        <div class="concept-tags"><span class="tag">DOM</span><span class="tag">innerHTML</span><span class="tag">hash source</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab8" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab9">
+      <div class="lab-card-header"><div class="lab-card-id">9</div><div class="lab-card-badges"><span class="badge badge-advanced">Advanced</span><span class="badge badge-solved" id="solved-lab9" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">DOM XSS — eval() Sink</div>
+        <div class="lab-card-desc">URL param flows directly into eval() — any JS you write executes.</div>
+        <div class="concept-tags"><span class="tag">DOM</span><span class="tag">eval</span><span class="tag">code execution</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab9" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab10">
+      <div class="lab-card-header"><div class="lab-card-id">10</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab10" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">DOM XSS — document.write + window.name</div>
+        <div class="lab-card-desc">Less-obvious sources: window.name persists cross-origin. Sink: document.write.</div>
+        <div class="concept-tags"><span class="tag">DOM</span><span class="tag">window.name</span><span class="tag">document.write</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab10" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab11">
+      <div class="lab-card-header"><div class="lab-card-id">11</div><div class="lab-card-badges"><span class="badge badge-advanced">Advanced</span><span class="badge badge-solved" id="solved-lab11" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">DOM XSS — postMessage → innerHTML</div>
+        <div class="lab-card-desc">Message handler passes event.data into innerHTML without origin check.</div>
+        <div class="concept-tags"><span class="tag">DOM</span><span class="tag">postMessage</span><span class="tag">origin check</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab11" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Part D -->
+  <div class="section-title" style="margin-top:40px;">Part D — Filter &amp; WAF Bypass (Labs 12–15)</div>
+  <div class="module-grid">
+
+    <div class="lab-card" data-lab="lab12">
+      <div class="lab-card-header"><div class="lab-card-id">12</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab12" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Bypass &lt;script&gt; Blacklist</div>
+        <div class="lab-card-desc">Filter strips &lt;script&gt; — execute via event handlers and alternate tags.</div>
+        <div class="concept-tags"><span class="tag">Bypass</span><span class="tag">blacklist</span><span class="tag">event handlers</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab12" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab13">
+      <div class="lab-card-header"><div class="lab-card-id">13</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab13" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Case &amp; Encoding Bypass</div>
+        <div class="lab-card-desc">Case-sensitive filter blocking event handler keywords. Mix case to bypass.</div>
+        <div class="concept-tags"><span class="tag">Bypass</span><span class="tag">case</span><span class="tag">encoding</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab13" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab14">
+      <div class="lab-card-header"><div class="lab-card-id">14</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab14" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">XSS Without Angle Brackets</div>
+        <div class="lab-card-desc">Angle brackets encoded — break out of an attribute using only quotes.</div>
+        <div class="concept-tags"><span class="tag">Bypass</span><span class="tag">attribute injection</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab14" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab15">
+      <div class="lab-card-header"><div class="lab-card-id">15</div><div class="lab-card-badges"><span class="badge badge-advanced">Advanced</span><span class="badge badge-solved" id="solved-lab15" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Mutation XSS (mXSS)</div>
+        <div class="lab-card-desc">Markup that looks safe is mutated by the browser's parser into something executable.</div>
+        <div class="concept-tags"><span class="tag">Bypass</span><span class="tag">mXSS</span><span class="tag">parser quirks</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab15" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Part E -->
+  <div class="section-title" style="margin-top:40px;">Part E — Framework XSS (Labs 16–18)</div>
+  <div class="module-grid">
+
+    <div class="lab-card" data-lab="lab16">
+      <div class="lab-card-header"><div class="lab-card-id">16</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab16" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">React — dangerouslySetInnerHTML</div>
+        <div class="lab-card-desc">React's escape hatch bypasses automatic encoding. One prop, full XSS.</div>
+        <div class="concept-tags"><span class="tag">Framework</span><span class="tag">React</span><span class="tag">escape hatch</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab16" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab17">
+      <div class="lab-card-header"><div class="lab-card-id">17</div><div class="lab-card-badges"><span class="badge badge-intermediate">Intermediate</span><span class="badge badge-solved" id="solved-lab17" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Vue — v-html Directive</div>
+        <div class="lab-card-desc">Vue's v-html renders raw HTML, bypassing text interpolation safety.</div>
+        <div class="concept-tags"><span class="tag">Framework</span><span class="tag">Vue</span><span class="tag">v-html</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab17" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab18">
+      <div class="lab-card-header"><div class="lab-card-id">18</div><div class="lab-card-badges"><span class="badge badge-advanced">Advanced</span><span class="badge badge-solved" id="solved-lab18" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">Angular — bypassSecurityTrust</div>
+        <div class="lab-card-desc">Developer explicitly trusted attacker input via Angular's DomSanitizer bypass.</div>
+        <div class="concept-tags"><span class="tag">Framework</span><span class="tag">Angular</span><span class="tag">DomSanitizer</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab18" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Part F -->
+  <div class="section-title" style="margin-top:40px;">Part F — Defense Bypass &amp; Capstone (Labs 19–20)</div>
+  <div class="module-grid">
+
+    <div class="lab-card" data-lab="lab19">
+      <div class="lab-card-header"><div class="lab-card-id">19</div><div class="lab-card-badges"><span class="badge badge-advanced">Advanced</span><span class="badge badge-solved" id="solved-lab19" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">CSP Bypass</div>
+        <div class="lab-card-desc">An injection point exists but a CSP "protects" it — find and exploit the misconfiguration.</div>
+        <div class="concept-tags"><span class="tag">CSP</span><span class="tag">unsafe-inline</span><span class="tag">JSONP</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">☆</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab19" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+    <div class="lab-card" data-lab="lab20">
+      <div class="lab-card-header"><div class="lab-card-id">20</div><div class="lab-card-badges"><span class="badge" style="background:rgba(248,81,73,0.15);color:var(--red);border:1px solid rgba(248,81,73,0.3);">Capstone</span><span class="badge badge-solved" id="solved-lab20" style="display:none;">&#10003; Solved</span></div></div>
+      <div class="lab-card-body">
+        <div class="lab-card-title">XSS Hunt → Account Takeover</div>
+        <div class="lab-card-desc">Find the real XSS among decoys, bypass the filter + CSP, steal the admin session. No type hints.</div>
+        <div class="concept-tags"><span class="tag">Capstone</span><span class="tag">account takeover</span><span class="tag">session theft</span></div>
+        <div class="lab-card-ratings">
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Interview</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+          <div class="rating-row"><span style="font-size:11px;color:var(--text-subtle);">Hunt</span><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></span></div>
+        </div>
+        <div class="lab-card-actions"><a href="/lab20" class="btn btn-primary btn-sm">Start Lab</a></div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="assets/main.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const heroSolved = document.getElementById('hero-solved');
+  if (heroSolved) heroSolved.textContent = HuntLabs.solvedCount();
+  for (let i = 1; i <= 20; i++) {
+    const id = 'lab' + i;
+    if (HuntLabs.isSolved(id)) {
+      const badge = document.getElementById('solved-' + id);
+      if (badge) badge.style.display = '';
+    }
+  }
+});
+</script>
+</body>
+</html>

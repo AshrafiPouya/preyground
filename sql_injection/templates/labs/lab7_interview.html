@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Lab 7 Interview Prep — DB Fingerprinting | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab7.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 7</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-advanced">Advanced</span>
+    <span class="rating-stars"><span class="star-filled">★★★</span><span class="star-empty">★★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Hunt</span>
+  </div>
+  <h1>Database Fingerprinting & Dialect-Specific Syntax</h1>
+  <p class="subtitle">Always identify the engine before crafting payloads. Assuming MySQL everywhere is a junior mistake.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"Fingerprinting means identifying which database engine is behind the application — via version functions, syntax quirks, and error messages — so you can use the correct dialect. Payloads that work on MySQL silently fail on PostgreSQL, and vice versa. You always fingerprint before you exploit."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">How do you tell MySQL from PostgreSQL from MSSQL?</label><div class="qa-answer">Try version functions: <code>version()</code> works in MySQL and PostgreSQL; <code>@@version</code> works in MySQL and MSSQL; <code>sqlite_version()</code> only works in SQLite. Error message formatting also differs — MySQL errors look different from PostgreSQL errors. Comment syntax: MySQL supports <code>#</code> as a comment; PostgreSQL and MSSQL do not. String concatenation: <code>CONCAT()</code> is MySQL; <code>||</code> is PostgreSQL/Oracle/SQLite; <code>+</code> is MSSQL.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">What differs syntactically between the main databases?</label><div class="qa-answer">Concatenation: MySQL=CONCAT(a,b), PostgreSQL/Oracle/SQLite=a||b, MSSQL=a+b. Comments: MySQL supports #, -- , and /**/ ; others only -- and /**/. LIMIT/TOP: MySQL/PostgreSQL use LIMIT n; MSSQL uses SELECT TOP n; Oracle uses ROWNUM &lt; n. Schema tables: information_schema (MySQL/PostgreSQL/MSSQL), sqlite_master (SQLite), ALL_TABLES (Oracle). Sleep: SLEEP() (MySQL), pg_sleep() (PostgreSQL), WAITFOR DELAY (MSSQL).</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Quick Reference</h2>
+    <table class="results-table" style="font-size:0.8rem;">
+      <thead><tr><th>DB</th><th>Version</th><th>Concat</th><th>Comment</th><th>Sleep</th><th>Schema</th></tr></thead>
+      <tbody>
+        <tr><td>MySQL</td><td>version() / @@version</td><td>CONCAT(a,b)</td><td>-- / #</td><td>SLEEP(n)</td><td>information_schema</td></tr>
+        <tr><td>PostgreSQL</td><td>version()</td><td>a||b</td><td>--</td><td>pg_sleep(n)</td><td>information_schema</td></tr>
+        <tr><td>SQLite</td><td>sqlite_version()</td><td>a||b</td><td>--</td><td>(no native)</td><td>sqlite_master</td></tr>
+        <tr><td>MSSQL</td><td>@@version</td><td>a+b</td><td>--</td><td>WAITFOR DELAY</td><td>information_schema</td></tr>
+        <tr><td>Oracle</td><td>banner FROM v$version</td><td>a||b</td><td>--</td><td>dbms_pipe</td><td>ALL_TABLES</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>Fingerprinting is only relevant once injection exists. The fix — parameterized queries — makes DB-specific tricks irrelevant, because the payload can never change the query structure regardless of dialect.</p>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">1 UNION SELECT version(),NULL,NULL-- (MySQL/PostgreSQL)</div>
+    <div class="oneliner">1 UNION SELECT @@version,NULL,NULL-- (MySQL/MSSQL)</div>
+    <div class="oneliner">1 UNION SELECT sqlite_version(),NULL,NULL-- (SQLite)</div>
+    <div class="oneliner">1 UNION SELECT banner,NULL FROM v$version-- (Oracle)</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ Assuming MySQL everywhere without confirming — a senior candidate always fingerprints first.</div>
+    <div class="red-flag-item">❌ Not knowing that Oracle uses ALL_TABLES instead of information_schema.</div>
+    <div class="red-flag-item">❌ Using # as a comment on PostgreSQL — it doesn't work and reveals that you haven't tested cross-DB.</div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X3 Interview Prep — postMessage | Hunt Labs</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links">
+      <a href="index.html">Hub</a>
+      <a href="x3.html">X3 Lab</a>
+      <a href="x3_interview.html" class="active">Interview Prep</a>
+    </div>
+    <div class="nav-counter" id="solved-counter">
+      <span class="solved-num">0</span> / 5 solved
+    </div>
+  </div>
+</nav>
+
+<div class="interview-page">
+
+  <div class="interview-back">
+    <a href="x3.html" class="btn btn-ghost btn-sm">&#8592; Back to Lab X3</a>
+    <a href="index.html" class="btn btn-ghost btn-sm">&#8962; Hub</a>
+  </div>
+
+  <div class="interview-header">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <span class="badge badge-lab">LAB X3</span>
+      <span class="badge badge-intermediate">Intermediate</span>
+    </div>
+    <h1>Interview Prep — postMessage Security</h1>
+    <p>Interview questions on the postMessage API security model, event.origin checks, and DOM-XSS via postMessage sinks.</p>
+  </div>
+
+  <!-- 30-second explanation -->
+  <div class="interview-section">
+    <h2>30-Second Explanation</h2>
+    <div class="thirty-sec">
+      <code>window.postMessage()</code> is a deliberate exception to the Same-Origin Policy:
+      any window can message any other window regardless of origin. The browser provides
+      <code>event.origin</code> so the receiver can verify who sent the message — but this
+      check must be implemented by the developer. Omitting it means any page that gets a
+      reference to your window (via <code>window.open()</code>, <code>window.opener</code>,
+      or iframes) can exfiltrate data or inject HTML by sending crafted messages. The fix
+      is always to check <code>event.origin</code> at the top of every message listener,
+      and to use a specific <code>targetOrigin</code> (never <code>'*'</code>) when sending
+      sensitive replies.
+    </div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="interview-section">
+    <h2>Q &amp; A</h2>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What is <code>postMessage</code> and why is it an exception to SOP?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <code>window.postMessage(data, targetOrigin)</code> allows a script to send a
+        message to another window (e.g., a popup or iframe) regardless of whether they
+        share an origin. It was introduced to allow legitimate cross-origin communication
+        — for example, a widget embedded in an iframe communicating with its parent page.
+        Unlike cross-origin fetch, <code>postMessage</code> is not blocked by SOP at
+        the sending side; security is entirely opt-in at the receiving side via
+        <code>event.origin</code> validation.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What is <code>event.origin</code> and why must you always check it?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <code>event.origin</code> is the origin of the window that called
+        <code>postMessage</code> — set by the browser and cannot be spoofed by the sender.
+        Without checking it, your listener trusts messages from every origin on the internet.
+        An attacker who can get a reference to your window (through a link, popup, iframe,
+        or <code>window.opener</code>) can send arbitrary data and trigger any branch of
+        your listener — including data exfiltration or DOM-XSS. The check must be the
+        very first thing in the listener:
+        <pre style="margin-top:8px;"><code>window.addEventListener('message', (event) => {
+  if (event.origin !== 'https://trusted.example.com') return;
+  // safe to process event.data
+});</code></pre>
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">What is the difference between <code>event.origin</code> and <code>targetOrigin</code>?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        They operate in opposite directions:
+        <ul style="color:var(--text-muted);font-size:14px;line-height:1.9;margin-top:8px;">
+          <li><strong><code>event.origin</code></strong> — on the <em>receiving</em> side: who sent this message? Use it to reject untrusted senders.</li>
+          <li><strong><code>targetOrigin</code></strong> (second arg to <code>postMessage</code>) — on the <em>sending</em> side: only deliver this message if the recipient window is at this origin. Use <code>'*'</code> only for non-sensitive data; use a specific origin for sensitive replies.</li>
+        </ul>
+        Using <code>targetOrigin: '*'</code> when sending a reply containing a secret is
+        dangerous: any window that races to acquire the reference could be at any origin
+        and will receive the secret.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How does a postMessage handler become a DOM-XSS sink?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        When a listener passes <code>event.data</code> (or a property of it) into a sink
+        like <code>innerHTML</code>, <code>document.write</code>, <code>eval</code>, or
+        a URL-based attribute (<code>href</code>, <code>src</code>), an attacker who can
+        send a message can inject arbitrary HTML/JS. This is called a
+        <em>postMessage-based DOM-XSS</em> vulnerability. Burp Suite's DOM Invader
+        specifically probes for these by injecting canary strings via postMessage and
+        watching for DOM mutations. The fix: sanitize or avoid HTML sinks entirely; use
+        <code>textContent</code> instead of <code>innerHTML</code> for untrusted data.
+      </div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">
+        <input type="checkbox" class="qa-check" />
+        <span class="qa-q-text">How would you find postMessage vulnerabilities in the wild?</span>
+        <span class="qa-chevron">&#9660;</span>
+      </div>
+      <div class="qa-answer">
+        <ol style="color:var(--text-muted);font-size:14px;line-height:1.9;">
+          <li>Search source for <code>addEventListener('message'</code> and check if each listener validates <code>event.origin</code>.</li>
+          <li>Use Burp DOM Invader: enable postMessage interception and inject canary strings.</li>
+          <li>Audit sinks: does the listener pass <code>event.data</code> to <code>innerHTML</code>, <code>eval</code>, or URL-setting APIs?</li>
+          <li>Check senders: search for <code>postMessage(</code> with <code>targetOrigin: '*'</code> in replies to sensitive messages.</li>
+          <li>Check <code>window.open()</code> usage — if the opened page is cross-origin and replies with secrets, can you intercept by racing with a same-name window?</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bypass one-liners -->
+  <div class="interview-section">
+    <h2>Bypass One-Liners</h2>
+
+    <div class="oneliner">
+      const w = window.open('http://victim.com/widget.html');
+      setTimeout(() =&gt; w.postMessage(JSON.stringify({type:'getSecret'}), '*'), 800);
+      window.addEventListener('message', e =&gt; console.log(e.data));
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Opens victim page and exfiltrates secrets if listener has no origin check.</p>
+
+    <div class="oneliner">
+      // DOM-XSS via postMessage:
+      window.open('http://victim.com/page.html');
+      setTimeout(() =&gt; w.postMessage(JSON.stringify({type:'render', html:'&lt;img src=x onerror=alert(1)&gt;'}), '*'), 800);
+    </div>
+  </div>
+
+  <!-- Developer Fix -->
+  <div class="interview-section">
+    <h2>Developer Fix</h2>
+    <div class="fix-box">
+      <p style="color:var(--green);font-weight:600;margin-bottom:8px;">Always validate event.origin — both directions</p>
+      <pre><code>// Receiving side — check origin first
+window.addEventListener('message', (event) => {
+  if (event.origin !== 'https://trusted.example.com') return; // reject
+
+  let msg;
+  try { msg = JSON.parse(event.data); } catch { return; }
+
+  if (msg.type === 'getProfile') {
+    // Reply only to the trusted origin
+    event.source.postMessage(
+      JSON.stringify({ user: 'alice' }),
+      event.origin   // specific targetOrigin, not '*'
+    );
+  }
+
+  if (msg.type === 'render') {
+    // Use textContent, never innerHTML, for untrusted data
+    document.getElementById('output').textContent = msg.text;
+  }
+});</code></pre>
+    </div>
+  </div>
+
+  <!-- Red Flags -->
+  <div class="interview-section">
+    <h2>Red Flags in Code Review</h2>
+
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>addEventListener('message', handler)</code> with no <code>event.origin</code> check inside the handler</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>event.source.postMessage(sensitiveData, '*')</code> — reply sent to any origin</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>element.innerHTML = event.data</code> or any property of <code>event.data</code> — DOM-XSS sink</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span><code>eval(event.data)</code>, <code>document.write(event.data)</code>, or setting <code>location</code> from message data</span>
+    </div>
+    <div class="red-flag-item">
+      <span class="red-flag-icon">&#9888;</span>
+      <span>Partial origin check: <code>if (event.origin.includes('trusted'))</code> — substring bypass</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/main.js"></script>
+<script>
+  document.querySelectorAll('.qa-question').forEach(q => {
+    q.addEventListener('click', () => {
+      q.closest('.qa-item').classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>

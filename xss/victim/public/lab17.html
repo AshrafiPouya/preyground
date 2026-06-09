@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 17 — Vue v-html | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab17" class="active">Lab 17</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 17 Solved — Vue v-html conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 17</span><span class="badge badge-intermediate">Intermediate</span></div>
+    <h1>Vue — v-html Directive</h1>
+    <p class="lab-header-desc">Vue's <code>{{ }}</code> interpolation is safe — it renders as text. But <code>v-html</code> renders raw HTML, bypassing Vue's built-in XSS protection.</p>
+  </div>
+
+  <div id="vue-app" class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#9679;</span><span class="panel-title">Vue Post Component</span></div>
+    <div class="panel-body">
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input v-model="content" class="flag-input" style="flex:1;" placeholder="Enter post content (HTML)…">
+        <button @click="submit" class="btn btn-primary">Post</button>
+      </div>
+
+      <div v-if="submitted">
+        <div style="margin-bottom:12px;">
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">&#10003; Safe — Vue {{ }} interpolation (auto-escaped):</p>
+          <div style="padding:8px;background:var(--surface-2);border:1px solid var(--border-muted);border-radius:4px;color:var(--text);">
+            {{ submitted }}
+          </div>
+        </div>
+        <div>
+          <p style="font-size:12px;color:var(--red);margin-bottom:4px;">&#10007; Unsafe — v-html directive (raw HTML):</p>
+          <div style="padding:8px;background:var(--surface-2);border:1px solid var(--red);border-radius:4px;min-height:32px;" v-html="submitted"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Vue Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">&lt;!-- Safe: Vue escapes text interpolation --&gt;</span>
+&lt;p&gt;{{ userContent }}&lt;/p&gt;
+
+<span class="hl-subtle">&lt;!-- BUG: v-html renders raw HTML --&gt;</span>
+&lt;div <span class="hl-red">v-html="userContent"</span>&gt;&lt;/div&gt;</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;"><strong>Fix:</strong> Use <code>{{ }}</code> for text content. If you need rich text, sanitize with DOMPurify before passing to <code>v-html</code>.</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>{{ }} vs v-html</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Vue's <code>{{ }}</code> syntax renders the value as text — it's always safe. <code>v-html</code> renders as raw HTML — it's the escape hatch, and it's dangerous with untrusted input.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>innerHTML quirk applies</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">v-html works by setting <code>el.innerHTML</code>. The same rules apply: <code>&lt;script&gt;</code> won't run, but <code>onerror</code>, <code>onload</code>, <code>&lt;svg onload=...&gt;</code> will.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>The payload</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Type <code>&lt;img src=x onerror=captureFlag()&gt;</code> in the content field. Watch how Vue's safe output shows it as text, but v-html executes it.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab17';
+const EXPECTED_FLAG = 'HUNT{v_html_renders_raw}';
+
+function captureFlag() {
+  fetch('/api/capture/lab17', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', 'FLAG: ' + d.flag);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+
+  Vue.createApp({
+    data() { return { content: '', submitted: '' }; },
+    methods: { submit() { this.submitted = this.content; } }
+  }).mount('#vue-app');
+});
+</script>
+</body>
+</html>

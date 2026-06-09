@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Lab 5 Interview Prep — Boolean Blind | Hunt Labs{% endblock %}
+{% block content %}
+<div class="interview-page">
+  <div style="margin-bottom:16px;"><a href="{{ url_for('lab5.index') }}" class="btn btn-ghost btn-sm">← Back to Lab 5</a></div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+    <span class="badge badge-intermediate">Intermediate</span>
+    <span class="rating-stars"><span class="star-filled">★★★★</span><span class="star-empty">★</span> Interview</span>
+    <span class="rating-stars"><span class="star-filled">★★★★★</span> Hunt</span>
+  </div>
+  <h1>Boolean-Based Blind SQL Injection</h1>
+  <p class="subtitle">"How would you exploit SQLi with no visible output?" — a classic depth-check question.</p>
+
+  <div class="interview-section">
+    <h2>The 30-Second Answer</h2>
+    <div class="thirty-sec">"Blind boolean SQLi extracts data even when nothing is reflected in the response — you ask the database true/false questions and read the answer from how the page changes. One character at a time, you test conditions against each position of a string, inferring the value from whether the page behaves as 'true' or 'false'. It's slow but reliable, and it works whenever there's any behavioral difference between true and false."</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Common Interview Questions</h2>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q1"><label class="qa-question" for="q1">What is blind SQL injection and how does it differ from in-band?</label><div class="qa-answer">In-band SQLi (error-based, UNION) returns data directly in the HTTP response. Blind SQLi returns no data — you infer it indirectly. Boolean blind uses page behavior (different content, status code, response length). Time-based blind uses response delay. The injected query logic is the same; only the exfiltration channel differs.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q2"><label class="qa-question" for="q2">How do you extract data with no reflected output?</label><div class="qa-answer">Ask binary questions about each character: "Is the first character of the password greater than 'M'?" If the page responds as 'true', you know it's in the range N–Z. Binary search on ASCII values (~7 questions per character) vs linear search (up to 94 questions per character). For each position, test: <code>AND ASCII(SUBSTR(secret,pos,1)) > midpoint--</code> and narrow down.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q3"><label class="qa-question" for="q3">What can serve as the boolean signal?</label><div class="qa-answer">Many things: different page content ("exists"/"not found"), HTTP status code (200 vs 500), response body length (even one character difference), presence or absence of a specific element, redirect vs no redirect. Any reliable binary difference between true and false works as the signal.</div></div>
+    <div class="qa-item"><input type="checkbox" class="answer-toggle" id="q4"><label class="qa-question" for="q4">Boolean vs time-based — when do you use each?</label><div class="qa-answer">Use boolean when there's any observable behavioral difference between true/false — it's faster and less noisy. Use time-based when the response is completely identical regardless of the condition — timing becomes the only signal. Time-based is slower and subject to network jitter. Boolean is always preferred when available.</div></div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Explain It to a Developer (the Fix)</h2>
+    <p>"No data shown" is not a defense. The fix is the same: parameterized queries. Even if your app returns zero visible output from injection, an attacker can still extract every byte of your database — it just takes more requests.</p>
+  </div>
+
+  <div class="interview-section">
+    <h2>One-Liners to Remember</h2>
+    <div class="oneliner">admin' AND 1=1-- (true signal)</div>
+    <div class="oneliner">admin' AND 1=2-- (false signal — confirm the binary signal works)</div>
+    <div class="oneliner">admin' AND SUBSTR((SELECT password FROM users LIMIT 1),1,1)='a'--</div>
+    <div class="oneliner">admin' AND ASCII(SUBSTR((SELECT password FROM users),1,1))>77-- (binary search)</div>
+  </div>
+
+  <div class="interview-section">
+    <h2>Red Flags to Avoid Saying</h2>
+    <div class="red-flag-item">❌ Treating boolean and time-based as the same — interviewers want you to distinguish the signal (content vs delay).</div>
+    <div class="red-flag-item">❌ "If there's no output, the app is safe from SQLi" — blind injection refutes this directly.</div>
+    <div class="red-flag-item">❌ Not mentioning binary search as an optimization — linear A→Z scanning shows you haven't thought about efficiency.</div>
+  </div>
+</div>
+{% endblock %}

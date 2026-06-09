@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 6 — Stored XSS via JSON/API | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab6" class="active">Lab 6</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 6 Solved — JSON/API → DOM XSS conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 6</span><span class="badge badge-intermediate">Intermediate</span></div>
+    <h1>Stored XSS via JSON/API → innerHTML</h1>
+    <p class="lab-header-desc">Data is stored via an API endpoint and later fetched client-side and injected via <code>innerHTML</code>. The JSON response is "safe" — the danger is in the DOM sink.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128100;</span><span class="panel-title">User Profile</span></div>
+    <div class="panel-body">
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px;color:var(--text-muted);">View profile for username:</label>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <input id="view-user" class="flag-input" style="flex:1;" placeholder="username" value="demo">
+          <button class="btn btn-ghost" onclick="loadProfile()">Load</button>
+        </div>
+      </div>
+      <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Bio:</div>
+        <div id="bio-display" style="min-height:40px;color:var(--text);">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#9998;</span><span class="panel-title">Edit Your Profile</span></div>
+    <div class="panel-body">
+      <form id="profile-form" style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <label style="font-size:13px;color:var(--text-muted);">Username</label>
+          <input id="edit-user" class="flag-input" style="width:100%;margin-top:4px;" placeholder="yourname" value="demo">
+        </div>
+        <div>
+          <label style="font-size:13px;color:var(--text-muted);">Bio (supports rich text)</label>
+          <textarea id="edit-bio" class="flag-input" style="width:100%;height:80px;margin-top:4px;" placeholder="Write your bio…"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-start;">Save Profile</button>
+      </form>
+      <div id="save-alert" class="alert" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128220;</span><span class="panel-title">Vulnerable Client-Side Code</span></div>
+    <div class="panel-body">
+      <pre><code><span class="hl-subtle">// Fetches profile from API and renders bio</span>
+fetch(<span class="hl-orange">'/api/lab6/profile?user=' + username</span>)
+  .then(r => r.json())
+  .then(data => {
+    <span class="hl-subtle">// BUG: innerHTML with server-stored (attacker-controlled) data</span>
+    bioDiv.<span class="hl-red">innerHTML</span> = data.bio;   <span class="hl-subtle">// ← unsafe sink</span>
+  });</code></pre>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:12px;">Note: <code>&lt;script&gt;</code> tags injected via innerHTML <strong>won't</strong> execute. But what about <code>onerror</code>, <code>onload</code>, or <code>&lt;svg&gt;</code>?</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>The data path</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">You control the bio. The bio is stored server-side and later fetched as JSON. Where does that JSON data end up on the page?</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>innerHTML quirk</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content"><code>innerHTML</code> does not execute injected <code>&lt;script&gt;</code> tags — but it does execute <code>onerror</code>, <code>onload</code>, and SVG vectors immediately.</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>The payload</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Set your bio to <code>&lt;img src=x onerror=captureFlag()&gt;</code> and save. Then load that username's profile to trigger it.</div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab6';
+const EXPECTED_FLAG = 'HUNT{json_safe_dom_unsafe}';
+
+function captureFlag() {
+  fetch('/api/capture/lab6', {method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      document.getElementById('flag-input').value = d.flag;
+      HuntLabs.showAlert(document.getElementById('flag-alert'), 'success', '&#10003; Flag captured! Copy it above and submit.');
+    });
+}
+
+async function loadProfile() {
+  const username = document.getElementById('view-user').value.trim() || 'demo';
+  const res = await fetch('/api/lab6/profile?user=' + encodeURIComponent(username));
+  const data = await res.json();
+  // VULNERABLE: innerHTML with user-controlled data from API
+  document.getElementById('bio-display').innerHTML = data.bio;
+}
+
+document.getElementById('profile-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const username = document.getElementById('edit-user').value.trim();
+  const bio = document.getElementById('edit-bio').value;
+  await fetch('/api/lab6/profile', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'username=' + encodeURIComponent(username) + '&bio=' + encodeURIComponent(bio)
+  });
+  HuntLabs.showAlert(document.getElementById('save-alert'), 'success', 'Profile saved!');
+  document.getElementById('view-user').value = username;
+  loadProfile();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG);
+  loadProfile();
+});
+</script>
+</body>
+</html>

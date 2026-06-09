@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Hunt Labs — SQL Injection Training{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="hero">
+    <div class="hero-eyebrow">// hands-on security training</div>
+    <h1>SQL Injection<br>Hunt Labs</h1>
+    <p class="hero-sub">10 progressively harder labs covering every real-world SQL injection technique. Learn to find it, exploit it, and defend against it.</p>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num">10</div>
+        <div class="stat-label">Labs</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">{{ solved | length }}</div>
+        <div class="stat-label">Solved</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">4</div>
+        <div class="stat-label">Difficulty Tiers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">10</div>
+        <div class="stat-label">Interview Prep Guides</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="labs-section">
+    <div class="section-title">// labs — build order follows skill progression</div>
+    <div class="lab-grid">
+      {% for lab in labs %}
+      {% set is_solved = lab.id in solved %}
+      <div class="lab-card {% if is_solved %}solved{% endif %}">
+        <div class="lab-card-header">
+          <span class="lab-number">LAB {{ '%02d' % lab.id }}</span>
+          <div class="lab-badges">
+            <span class="badge badge-{{ lab.difficulty }}">{{ lab.difficulty }}</span>
+            {% if is_solved %}<span class="badge badge-solved">✓ solved</span>{% endif %}
+          </div>
+        </div>
+
+        <div>
+          <div class="lab-title">{{ lab.title }}</div>
+        </div>
+
+        <div class="lab-desc">{{ lab.description }}</div>
+
+        <div class="lab-ratings">
+          <div class="rating-item">
+            <div class="rating-label">🎤 Interview</div>
+            <div class="rating-stars">
+              {% for i in range(1, 6) %}
+              <span class="{% if i <= lab.interview_chance %}star-filled{% else %}star-empty{% endif %}">★</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="rating-item">
+            <div class="rating-label">🎯 Hunt</div>
+            <div class="rating-stars">
+              {% for i in range(1, 6) %}
+              <span class="{% if i <= lab.hunt_chance %}star-filled{% else %}star-empty{% endif %}">★</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="lab-concepts">
+          {% for c in lab.concepts %}
+          <span class="concept-tag">{{ c }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="lab-actions">
+          <a href="{{ url_for(lab.slug + '.index') }}" class="btn btn-primary btn-sm">
+            {% if is_solved %}Review Lab{% else %}Start Lab{% endif %}
+          </a>
+          <a href="{{ url_for(lab.slug + '.interview') }}" class="btn btn-ghost btn-sm">Interview Prep</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if solved | length > 0 %}
+  <div style="padding: 20px 0; text-align:center; border-top: 1px solid var(--border-soft); margin-top: 20px;">
+    <form method="post" action="{{ url_for('reset_progress') }}" onsubmit="return confirm('Reset all progress?')">
+      <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--text-dim)">Reset All Progress</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
