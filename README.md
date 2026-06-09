@@ -20,3 +20,4 @@ docker compose up --build
 | SQL Injection | `sql_injection/` |
 | CMDi / RCE / SSTI | `cmdi_rce_ssti/` |
 | Client-Side / Cross-Origin | `client_side_xorigin/` |
+| XSS | `xss/` |
